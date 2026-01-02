@@ -1,0 +1,14 @@
+{% with ba=group.best_ask_btc %}
+{% with bb=group.best_bid_btc %}
+<tr>
+    <th>Best ask:</th>
+    <td>{% if ba %}{{ ba.price }}{% endif %}</td>
+    <td>{% if ba %}{{ ba.quantity }}{% endif %}</td>
+</tr>
+<tr>
+    <th>Best bid:</th>
+    <td>{% if bb %}{{ bb.price }}{% endif %}</td>
+    <td>{% if bb %}{{ bb.quantity }}{% endif %}</td>
+</tr>
+{% endwith %}
+{% endwith %}

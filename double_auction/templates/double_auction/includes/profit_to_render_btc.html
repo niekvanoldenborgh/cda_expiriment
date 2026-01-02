@@ -1,0 +1,23 @@
+
+<tr>
+    <td><strong>Currency B holdings :</strong></td>
+    <td>{{ player.allocation_btc }}</td>
+</tr>
+<tr>
+    <td><strong> {% if player.role == 'buyer' %} # of packages purchased: {% else %} # of packages left for sale {% endif %} </strong></td>
+    <td>{{ player.units_btc }}</td>
+</tr>
+
+{% if player.role == 'seller' %}
+
+{% else %}
+<tr>
+    <td>Chips bought in this round:</td>
+    <td>{{ player.thisround_profit }}</td>
+</tr>
+<tr>
+    <td>{{player.Currency_name}} made in this round:</td>
+    <td>{{player.Currency_symbol}}{{ player.thisround_euro }}</td>
+</tr>
+{% endif %}
+

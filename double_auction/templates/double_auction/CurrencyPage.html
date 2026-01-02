@@ -1,0 +1,80 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}
+    Currency Exchange
+{% endblock %}
+
+{% block content %}
+
+    {% csrf_token %}
+        <div class="row generalrow">
+            <div class="form-group col-md-12 form-inline">
+            {% include 'double_auction/includes/general_info_block_nonauction.html' %}
+
+            </div>
+        </div>
+    <div>you have <b id="allocation_dollar">{{ player.allocation_dollar }}</b> Currency A and <b id="allocation_btc">{{ player.allocation_btc }}</b> Currency B. Choose one option: </div>
+    {% formfield player.currency_option label="" %}
+
+    <div class="exchange_dollar"  >
+    {% formfield player.exchange_dollar label=exchange_dollar_label %}
+    </div>
+    <div class="exchange_btc" >
+    {% formfield player.exchange_btc label=exchange_btc_label %}
+    </div>
+
+    {% next_button %}
+{% endblock %}
+
+
+{% block styles %}
+    <link href="{% static "double_auction/market.css" %}" rel="stylesheet">
+
+{% endblock %}
+{% block scripts %}
+    {#  Here we include javascript block where we connect via websockets to oTree server  #}
+    {% include './includes/channel-js.html' %}
+
+    <script>
+        if (!$( ".exchange_dollar .form-control-errors" ).length){
+            $(".exchange_dollar").hide();
+        }
+        if (!$( ".exchange_btc .form-control-errors" ).length){
+            $(".exchange_btc").hide();
+        }
+        if ($( "#allocation_dollar" ).html() ==0.0) {
+            $("#id_currency_option>li:first-child").hide()
+        }
+        if ($( "#allocation_btc" ).html() ==0.0) {
+            $("#id_currency_option>li:nth-child(2)").hide()
+        }
+
+        $("#id_currency_option_0").click(function() {
+
+            $(".exchange_dollar").show();
+            $(".exchange_btc").hide();
+
+
+        });
+
+        $("#id_currency_option_1").click(function() {
+
+            $(".exchange_dollar").hide();
+            $(".exchange_btc").show();
+
+        });
+
+        $("#id_currency_option_2").click(function() {
+
+            $(".exchange_dollar").hide();
+            $(".exchange_btc").hide();
+
+        });
+
+
+
+    </script>
+{% endblock %}
+
+

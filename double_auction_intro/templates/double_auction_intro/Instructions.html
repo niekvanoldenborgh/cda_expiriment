@@ -1,0 +1,237 @@
+{% load otree staticfiles %}
+
+<div class="card bg-light instructions" id="show_hide">
+    <div class="card-body">
+
+    <h2>
+        Instructions
+    </h2>
+
+
+<br>
+<h3>Overview of the experiment</h3>
+<p>
+In this experiment, you will be trading with other players to get as many chips as you can by playing a real-time <strong>market game</strong> that uses a double auction mechanism (both buyers and sellers will be making offers). These chips determine your payout at the end of the experiment. To get chips, you will need to buy and sell packages of chips with other participants in the experiment. You will have to buy different types of packages of chips with different currencies.
+
+These market games are made up of a sequence of periods. Each sequence consists of <strong>an indefinite number of periods</strong>. Basically, how long it lasts is randomized. The number of periods played in each sequence is randomly determined in the following manner: At the end of each period, the computer will roll a virtual 6-sided dice. If the numbers 2, 3, 4, 5 or 6 are rolled from the dice, the sequence continues and you will continue playing the game, but if a '1' is rolled, the sequence ends and the game will restart. This means that all currency holdings and chips you currently have will disappear, and a new sequence will start. In other words, <strong>after each period, the market game continues with a probability </strong>5/6 ≃ 83%<strong> or ends with a probability </strong>1/6 ≃ 17%.</p>
+
+<!--You will encounter waiting pages when other players are making decisions. We request that you remain attentive as this experiment requires an even-number of participants. <strong>If you do not respond within a given time limit you may be dropped from the experiment</strong>. If someone is dropped from the experiment, the server will automatically drop one other player to maintain an even number of participants. If you are dropped, you will be given a show-up fee plus whatever earnings you have accumulated so far.-->
+
+<p>We will run <strong>as many sequences as possible during the time for which you have been recruited</strong>. After a sequence has ended, if there is not enough time remaining to start a new sequence, the experiment ends.</p>
+
+<p>Before beginning the first sequence, you will have <strong>2 practice periods</strong> to familiarize yourself with the interface. Your decisions during those 2 practice periods will have no consequences on the actual experiment and will not count towards your earnings. It will be made clear to you and all other players when the actual experiment will start.</p>
+
+
+<br>
+<h3>The market game</h3>
+<p>You are part of a group of <b> players</b> participating in markets where you buy and sell packages of chips. The rules are the same for all players. You will be split into equally sized groups of <b>buyers</b> and <b>sellers</b>. Each player will alternate between the roles of seller and buyer from period to period. Whether you start your first period as a seller or a buyer is randomly determined by the computer. For instance, if you are assigned the role of a buyer in period 1, you will then be a seller in period 2, then a buyer again in period 3, and so on until the sequence ends.</p>
+	
+<p>You will buy and sell chips in <strong>two markets that each use different currencies</strong>: Market A using Currency A and Market B using Currency B. Since you will alternate roles, buying chips is possible only every second period (when you are a buyer). Whenever you begin a period as a seller, you will be given 5 packages which you cannot use or keep for yourself, your goal as a seller is to sell these packages in order to increase your currency holdings to buy more packages when you are once again a buyer.</p>
+
+
+<br>
+<div {{ player.no_transaction_hidden}}>
+    <h3>Number of chips per package</h3>
+    <p>Chips are <strong>bought and sold in packages</strong>. Packages come in two types depending on which market you buy them from, the first type of package can only be bought from Market A which uses Currency A, the second type can only be bought from Market B which uses Currency B. When you buy a package, the number of chips you get depends on which currency/market you used to purchase the package and how many packages you already own.</p>
+
+    <ul><li><strong>Packages bought with currency A</strong> can only be bought from Market A and will yield increasingly fewer chips, the more you purchase of these packages in a given period, the less each new package of this type will be worth to you. The first package bought using Currency A gives you 100 chips, the second package gives you 90 chips, ... , the 10th package only gives you 10 chips, ..., and any additional package beyond the 19th purchased only brings you one chip.</li>
+
+    <li><strong>Packages bought with currency B</strong> can only be bought from Market B and will always be worth 75 chips per package regardless of how many you have bought.</li></ul>
+
+    <table class="table table-striped" >
+    <tbody>
+    <tr>
+    <td>Package</td>
+    <td>1st</td>
+    <td>2nd</td>
+    <td>3rd</td>
+    <td>4th</td>
+    <td>5th</td>
+    <td>...</td>
+    <td>10th</td>
+    <td>11th</td>
+    <td>12nd</td>
+    <td>...</td>
+    <td>19th and beyond</td>
+    </tr>
+    <tr>
+    <td>Chip content (in A)</td>
+    <td>100</td>
+    <td>90</td>
+    <td>80</td>
+    <td>70</td>
+    <td>60</td>
+    <td>...</td>
+    <td>10</td>
+    <td>9</td>
+    <td>8</td>
+    <td>...</td>
+    <td>1</td>
+    </tr>
+    <tr>
+    <td>Chip content (in B)</td>
+    <td>75</td>
+    <td>75</td>
+    <td>75</td>
+    <td>75</td>
+    <td>75</td>
+    <td>...</td>
+    <td>75</td>
+    <td>75</td>
+    <td>75</td>
+    <td>...</td>
+    <td>75</td>
+    </tr>
+    </tbody>
+    </table>
+
+<p><u>Example</u>: You buy 1 package using Currency A and 2 packages using Currency B in the first period of trading. Then you alternate roles to seller in the second period, then in the third period of trading, are a buyer again and you buy 2 more packages in Currency A and 1 more in package in Currency B. In total, you have purchased (100) + (100 + 90) = 290 chips using Currency A and 3 x 75 = 225 chips using Currency B, for a total of 290 + 225 = 515 chips so far.</p>
+</div>
+
+<div {{ player.no_transaction_show}}>
+    <h3>Number of chips per package</h3>
+    <p>Chips are <strong>bought and sold in packages</strong>. Packages come in two types depending on which market you buy them from, the first type of package can only be bought from Market A which uses Currency A, the second type can only be bought from Market B which uses Currency B. Packages in <strong>both</strong> auction houses are always worth <strong>100</strong> chips per package.</p>
+
+
+    <table class="table table-striped" >
+    <tbody>
+    <tr>
+    <td>Package</td>
+    <td>1st</td>
+    <td>2nd</td>
+    <td>3rd</td>
+    <td>4th</td>
+    <td>5th</td>
+    <td>...</td>
+
+    </tr>
+    <tr>
+    <td>Chip content (in A)</td>
+    <td>100</td>
+    <td>100</td>
+    <td>100</td>
+    <td>100</td>
+    <td>100</td>
+    <td>...</td>
+    </tr>
+    <tr>
+    <td>Chip content (in B)</td>
+    <td>100</td>
+    <td>100</td>
+    <td>100</td>
+    <td>100</td>
+    <td>100</td>
+    <td>...</td>
+    </tr>
+    </tbody>
+    </table>
+
+<p><u>Example</u>: You buy 1 package using Currency A and 2 packages using Currency B in the first period of trading. Then you alternate roles to seller in the second period, then in the third period of trading, are a buyer again and you buy 2 more packages in Currency A and 1 more in package in Currency B. In total, you have purchased 3 x 100 = 300 chips using Currency A and 3 x 100 = 300 chips using Currency B, for a total of 300 + 300 = 600 chips so far.</p>
+</div>
+
+
+<br>
+<h3>What happens during a period of the market game</h3>
+<ul>
+<li class="p1">When you <b>first start a sequence</b> as a buyer (which will last a random number of periods), you will receive 100 units of Currency A and 100 units of Currency B.</li>
+<li class="p1">At the beginning of <b>every period</b> when you are a seller, you will receive 5 packages, you must choose to allocate them to be sold on Market A or Market B.</li>
+<li class="p1">At the end of <b>every period</b> when you are a seller, you lose all packages you failed to sell.</li>
+<li class="p1">In each period, you will participate (either as a seller or as a buyer) in two different markets, one using Currency A (red boxes) and one using Currency B (blue boxes).</li>
+<li class="p1">Packages that yield diminishing numbers of chips are sold in Market A for Currency A, Packages that yield constant numbers of chips are sold in Market B for Currency B.</li>
+<li class="p1">You will carry over currency changes from period to period according to your actions as a buyer or seller.</li>
+</ul>
+
+<br {{ player.inflation_info}}>
+<h3 {{ player.inflation_info}}>Growth of the amount of Currency A</h3>
+<p {{ player.inflation_info}}> In each sequence, at the end of <strong> each period</strong>, the holdings in <strong>currency A of all players</strong>, whether sellers or buyers,  are <strong> increased by 30% </strong>.
+    For instance, suppose you were a seller in period 1 and sold packages against 80 units in currency A. You then start period 2 as a buyer with 80 + 80 * 30% = 104 of currency A. </p>
+
+<p {{ player.inflation_info}}>This way, the total quantity of currency A in the experimental market increases by 30% per period. This increase only concerns currency A, the total amount of currency B remains unchanged throughout any sequence.</p>
+
+	
+	
+	
+<br>
+<h3>Phases within a Period and their time limits </h3>
+<ol>
+<li class="p1">Allocating Packages Phase: Sellers' choose what allocation of their 5 packages goes to Market A or Market B (<strong>30 seconds</strong>).</li>
+<li class="p1">Trading Phase: Buyers and Sellers make real-time offers for packages (<strong>90 seconds</strong>).</li>
+</ol>
+
+<p style="padding-left: 30px;"><u>Note</u>: A trading phase will close before time runs out whenever there are no more packages available for sale or there is no currency left to be spent. Hence, inncludig some waiting time, a period of the market game lasts a maximum of 3 minutes.</p>
+
+
+
+<br>
+<h3>Allocating Packages Phase:</h3>
+<ul>
+<li class="p1">This happens before the trading phase of a period</li>
+<li class="p1">Sellers are given 5 packages. They must choose how many of them they want to be offered on Market A and how many can be offered on Market B.</li>
+</ul>
+
+
+
+
+<br>
+<h3>Trading Phase</h3>
+
+<ul>
+<li class="p1">Sellers post <strong>asks</strong>, offers to sell a certain number of packages and the price they want to sell.</li>
+<li class="p1">Buyers post <strong>bids</strong>; offers to buy a number of packages and the highest price they will pay up to.</li>
+<li class="p1">Bids/asks can be changed at any time if they have not yet gone through.</li>
+<li class="p1">You can cancel your last bid/ask by clicking the "<em><strong>Retract last bid</strong></em>" button and "<em><strong>Retract last ask</strong></em>" button</li>
+</ul>
+<p class="p1" style="padding-left: 60px;"><u>Note</u>: You can shortcut your participation in the market by clicking on the "<em><strong>Accept best bid</strong></em>" button as a seller (this means that you accept to sell at the highest price among all prices offered by the buyers), and by clicking the "<em><strong>Accept best ask</strong></em>" as a buyer (this means that you accept to buy at the lowest price among all prices offered by the sellers).</p>
+
+
+<ul><li class="p1">A trade is finalized every time there is an ask price equal or less than a bid price.
+<ul>
+<li class="p1">The transaction price is the seller's asking price and the number of packages exchanged is the minimum between the number of packages offered by the seller, and desired by the buyer.</li>
+<li class="p1">As a buyer, if no packages are for sale at or below your bid price, you will not buy any packages.</li>
+<li class="p1">As a seller, if no packages are demanded for a price equal or higher to your ask price, you will not sell any packages.</li></ul></li></ul>
+<p class="p1" style="padding-left: 60px;"><span style="text-decoration: underline;">Example:</span>You are a buyer and your bid is 2 packages at 100 units of Currency A. There is a seller whose ask is 3 packages at 80 units of Currency A. The transaction takes place and you buy from that seller 2 packages at 80 units of Currency A.</p>
+
+
+<ul>
+<li class="p1">You can submit as many asks and bids as you want as long as the markets are open.
+<ul>
+<li class="p1">As a buyer, you can never spend more currency than what you have allocated to each market. It can happen that you are not able to spend all your currency holdings. In this case, the remaining balance is then transferred to the next period.</li>
+<li class="p1">As a seller, you can never sell more packages than you have allocated to a Market. It can happen that you are not able to sell all your packages. In this case, the unsold packages disappear at the end of that trading phase, which means that they may not be consumed or sold later.</li>
+
+</ul>
+</li></ul>
+
+
+
+
+<br>
+<h3>Your earnings at the end of the experiment</h3>
+<p class="p2">The chips you purchase convert into money, hence you can accrue earnings only when you are a buyer. The payoff graphic below <span class="s2">indicates how many {{ player.Currency_name}}s</span> you can earn (y-axis) as a function of the number of chips you purchase in a given period (x-axis). There is also a slider that you can use to see the exact amount of {{ player.Currency_name}}s for each exact number of chips.</p>
+
+<div id="container_euro"></div>
+		
+<p class="p1">The more chips you buy, the more real-life money you can earn at the end of the experiment. However the chips you buy will convert into progressively less currency the more chips you accumulate within a single period.</p>
+
+<p class="p1">Your total earnings in each sequence are the sum of your earnings in every period when you are a buyer during that sequence. At the end of the experiment, two sequences will be randomly selected (with equal probability out of all sequences played) and we will pay you <strong>the money you earn during those two sequences, on top of a 9 euro participation compensation for your time and efforts</strong>.</p>
+
+
+
+<br>
+<h3>Summary</strong></h3>
+<ul>
+<li class="p2">You will play several sequences of a market game which lasts a randomized number of periods. After each period, the game ends with a 1/6 ≃ 17% probability. When this happens, all currency holdings are reset to zero and a new sequence starts.</li>
+<li class="p2">You will play as many sequences as time allows us. During each sequence, you will play alternating between being buyers and sellers of packages of chips. You can buy and sell chips in Market A using Currency A, or Market B using Currency B.</li>
+<li class="p2">At the beginning of each period, when you are a seller, you receive 5 packages of chips to sell to choose to allocate to Market A or Market B, these packages cannot be used or kept by you after each period.</li>
+<li class="p2">You start every sequence with 100 units of Currency A and 100 of Currency B. Your changes will carry over from period to period.</li>
+<li class="p2" {{ player.no_transaction_hidden}}>The more packages you buy in Currency A, the fewer chips each additional package contains. Packages bought in Currency B always contain the same amount of chips. This resets every period.</li>
+<li class="p2">The more chips you purchase in each period, the higher your payoff but earnings do not increase as fast as the number of chips purchased. Only the total earnings from two sequences plus 9 euros will be paid out to you at the end of the experiment.</li>
+</ul>
+        <div {{ player.video_hidden}}>
+        <h3>Video Instructions</strong></h3>
+         <iframe width="860" height="520" src="https://www.youtube.com/embed/hYUZO_DEZWM"
+        frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope;
+        picture-in-picture" allowfullscreen></iframe>
+        </div>
+
+</div>
+</div>

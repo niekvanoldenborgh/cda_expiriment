@@ -1,0 +1,43 @@
+{% extends "global/Page.html" %}
+{% load staticfiles otree %}
+
+{% block title %}
+Video Instructions
+{% endblock %}
+
+{% block scripts %}
+    <link rel="stylesheet" href="{% static "jquery-ui.css" %}">
+
+
+    <script src="{% static "jquery-1.12.4.js" %}"></script>
+    <script src="{% static "jquery-ui.js" %}"></script>
+
+    <script src="{% static "jquery-ui-slider-pips.js" %}"></script>
+    <script src="{% static "highcharts.js" %}"></script>
+    <script src="{% static "series-label.js" %}"></script>
+    <script src="{% static "exporting.js" %}"></script>
+
+
+
+    <script>
+
+
+
+    </script>
+
+{% endblock %}
+
+
+{% block content %}
+
+    {% csrf_token %}
+
+
+
+
+<iframe width="1000" height="600" src="https://www.youtube.com/embed/hYUZO_DEZWM"
+        frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope;
+        picture-in-picture" allowfullscreen></iframe>
+    {% next_button %}
+
+{% endblock %}

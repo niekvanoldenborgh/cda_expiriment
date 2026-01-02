@@ -1,0 +1,43 @@
+<div class="col-md-4">
+    <div class="card my-3">
+        <div class="card-body dollar_house">
+
+            <table class="table table-sm table-stripped">
+                <thead>
+                    <tr>
+                        <th>Market A</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% with last=player.get_last_statement %}
+                    <tr>
+                        <th>Your last {{ player.action_name }}:</th>
+                        <td id="last_statement_price">{% if last %}{{ last.price }}{% endif %}</td>
+                        <td id="last_statement_quantity">{% if last %}{{ last.quantity }}{% endif %}</td>
+                    </tr>
+                    {% endwith %}
+                </tbody>
+            </table>
+
+            <div class="form_container">
+                {% include 'double_auction/includes/form_to_render.html' %}
+            </div>
+
+            <table class="table table-sm bitaskspread">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                    </tr>
+                </thead>
+                <tbody class="spread_container">
+                    {% include 'double_auction/includes/spread_to_render.html' %}
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</div>

@@ -1,0 +1,20 @@
+<div class="col-md-3">
+    <div class="card my-3">
+        <div class="card-body btc_house">
+            <h4 class="card-title">Bids (BTC)</h4>
+
+            <table class="table table-striped header-fixed">
+                <thead>
+                    <tr>
+                        <th style="width: 30%">Price</th>
+                        <th style="width: 40%">Quantity</th>
+                        <th style="width: 30%">&nbsp;</th>
+                    </tr>
+                </thead>
+                <tbody class="bids_container_btc">
+                    {% include 'double_auction/includes/bids_to_render_btc.html' %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

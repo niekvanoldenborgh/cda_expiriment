@@ -1,0 +1,139 @@
+{% extends "global/Page.html" %}
+{% load static otree %}
+
+{% block title %}{% endblock %}
+
+{% block styles %}
+    {# Adjust path depending on where you placed the file #}
+    <link rel="stylesheet" href="{% static 'jquery-ui.css' %}">
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'jquery-1.12.4.js' %}"></script>
+    <script src="{% static 'jquery-ui.js' %}"></script>
+
+    <script src="{% static 'jquery-ui-slider-pips.js' %}"></script>
+    <script src="{% static 'highcharts.js' %}"></script>
+    <script src="{% static 'series-label.js' %}"></script>
+    <script src="{% static 'exporting.js' %}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // currency name
+            var currencyEl = document.getElementById('id_currency_name');
+            var currencyName = currencyEl ? currencyEl.value : '';
+
+            // data from oTree
+            var Euro = {{ Euro|json }};
+
+            // Only try to render if the container exists
+            var chartContainer = document.getElementById('container_euro');
+            if (chartContainer && typeof Highcharts !== 'undefined') {
+                Highcharts.chart('container_euro', {
+                    title: { text: '' },
+                    subtitle: { text: '' },
+
+                    yAxis: {
+                        title: { text: 'Earnings in ' + currencyName },
+                        max: null,
+                        minTickInterval: 1
+                    },
+                    xAxis: {
+                        title: { text: 'Number of chips (purchased in period)' },
+                        max: 1000,
+                        min: 0,
+                        minTickInterval: 100
+                    },
+                    plotOptions: {
+                        series: {
+                            label: { connectorAllowed: false },
+                            marker: { enabled: false },
+                            pointStart: 1
+                        }
+                    },
+                    series: Euro,
+
+                    tooltip: {
+                        formatter: function () {
+                            return '<b>' + this.series.name + '</b><br>'
+                                + 'Earnings in ' + currencyName + ':' + this.point.y
+                                + '</b><br>Number of chips: ' + this.point.x;
+                        }
+                    },
+                    navigation: { buttonOptions: { enabled: true } },
+                    responsive: {
+                        rules: [{
+                            condition: { maxWidth: 100 },
+                            chartOptions: {
+                                legend: {
+                                    layout: 'horizontal',
+                                    align: 'center',
+                                    verticalAlign: 'bottom'
+                                }
+                            }
+                        }]
+                    }
+                });
+            }
+
+            // show/hide instructions (guard if element not present)
+            var showHide = document.getElementById('show_hide');
+            if (showHide) showHide.style.display = 'none';
+
+            window.count_click = function () {
+                if (!showHide) return;
+                showHide.style.display = (showHide.style.display === 'none') ? 'block' : 'none';
+            };
+        });
+    </script>
+{% endblock %}
+
+{% block content %}
+
+<input type="hidden" id="id_currency_name" value="{{ player.Currency_name }}">
+
+<div class="card bg-light instructions">
+    <div class="row generalrow">
+        <div class="form-group col-md-10 form-inline">
+            <h2>Quiz</h2>
+        </div>
+
+        <div class="form-group col-md-2 form-inline">
+            <button type="button"
+                    class="btn btn-danger"
+                    id="randomG_button"
+                    name="RandomNumber"
+                    onclick="count_click()">
+                Instruction
+            </button>
+        </div>
+    </div>
+
+	{% include "double_auction_intro/Instructions.html" %}
+
+    <p>1. Imagine that in a given period, you purchase 3 packages in currency A and 1 in currency B.</p>
+    <p>(a) How many chips did you purchase?</p>
+    {% formfield player.Q1_1 %}
+
+    <p>(b) How many {{ player.Currency_name }}s did you make? (Please keep two decimal points)</p>
+    {% formfield player.Q1_2 %}
+
+    <p>
+        2. Imagine that you are a seller and your ask is 3 packages at 10 units of currency A.
+        There is a buyer whose bid is 2 packages at 18 units of currency A. Which one of the following applies?
+    </p>
+    {% formfield player.Q2 %}
+
+    <p>3. Which one of the following applies?</p>
+    {% formfield player.Q4 %}
+</div>
+
+{% next_button %}
+
+{% endblock %}
+
+
+
+
+
+

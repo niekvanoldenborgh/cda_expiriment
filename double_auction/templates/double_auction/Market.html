@@ -1,0 +1,195 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+
+
+
+
+
+{% block body_main %}
+    <div class="hidden_field" id="round_number" >{{ group.round_number}} </div>
+    <div class="hidden_field" id="sequence_number">{{ group.sequence_number}} </div>
+
+
+
+
+
+
+             <p>
+    <div class="container-fluid">
+        <div class="row generalrow">
+            <div class="form-group col-md-12 form-inline">
+            {% include 'double_auction/includes/general_info_block.html' %}
+
+            </div>
+        </div>
+
+        <div class = "temp-body">
+        <div class="row toprow">
+
+            {% include 'double_auction/includes/form_block.html' %}
+
+
+            {% include 'double_auction/includes/info_block.html' %}
+
+
+
+            {% include 'double_auction/includes/asks_block.html' %}
+
+            {% include 'double_auction/includes/bids_block.html' %}
+
+
+
+        </div>
+        </div>
+        <div class = "temp-body">
+        <div class="row bottomrow">
+
+            {% include 'double_auction/includes/form_block_btc.html' %}
+
+            {% include 'double_auction/includes/info_block_btc.html' %}
+
+
+            {% include 'double_auction/includes/asks_block_btc.html' %}
+
+            {% include 'double_auction/includes/bids_block_btc.html' %}
+
+
+        </div>
+        </div>
+    {% include Constants.instructions_template %}
+    </div>
+<input type="hidden" id="id_currency_name" value='{{ player.Currency_name }}'>
+
+  {% include 'double_auction/includes/modal.html' %}
+    {% include 'double_auction/includes/warning_modal.html' %}
+{% endblock %}
+
+{% block styles %}
+    <link href="{% static "market.css" %}" rel="stylesheet">
+
+    <link rel="stylesheet" href="{% static "jquery-ui.css" %}">
+
+
+    <script src="{% static "jquery-1.12.4.js" %}"></script>
+    <script src="{% static "jquery-ui.js" %}"></script>
+
+    <script src="{% static "jquery-ui-slider-pips.js" %}"></script>
+    <script src="{% static "highcharts.js" %}"></script>
+    <script src="{% static "series-label.js" %}"></script>
+    <script src="{% static "exporting.js" %}"></script>
+
+{% endblock %}
+
+{% block scripts %}
+    {% include 'double_auction/channels/market_channel.html' %}
+
+    {% if view.remaining_timeout_seconds != None %}
+
+    {% endif %}
+    
+
+    <script>
+
+    $(function () {
+        $('.otree-timer__time-left').on('update.countdown', function (event) {
+            if (event.offset.totalSeconds < 10) {
+                $('.otree-timer__time-left').css("font-size", "36px");
+                $('.otree-timer__time-left').css("font-weight", "bold");
+            }
+        });
+    });
+
+
+    </script>
+
+    <script>
+        document.getElementById("show_hide").style.display = "none"
+        function count_click() {
+                 if (document.getElementById("show_hide").style.display == "none") {
+                        document.getElementById("show_hide").style.display = "block";
+                    }
+                 else if (document.getElementById("show_hide").style.display == "block") {
+                        document.getElementById("show_hide").style.display = "none";
+                    }
+        }
+    </script>
+
+
+
+    <script>
+        var $currency_name = $('#id_currency_name').val();
+        var Euro = {{ Euro|json }};
+
+        Highcharts.chart('container_euro', {
+/*
+            chart: {
+                type: 'scatter',
+                zoomType: 'xy'
+            },
+*/
+            title: {
+                text: ''
+            },
+            subtitle: {
+                text: ''
+            },
+
+            yAxis: {
+                title: {
+                    text: 'Earnings in ' +$currency_name
+                },
+                max: null,
+                minTickInterval: 1
+            },
+            xAxis: {
+                    title: {
+                        text: 'Number of chips (purchased in period)'
+                    },
+                    max: 1000,
+                    min: 0,
+                    minTickInterval: 100
+            },
+            plotOptions: {
+                series: {
+                    label: {
+                        connectorAllowed: false
+                    },
+                    marker: {
+                        enabled: false
+                    },
+                    pointStart: 1
+                }
+            },
+            series: Euro,
+
+            tooltip: {
+                formatter: function () {
+                    return '<b>' + this.series.name + '</b><br>Earnings in ' + $currency_name +':' + this.point.y  + '</b><br>Number of chips: ' + this.point.x;
+                }
+            },
+            navigation: {
+                buttonOptions: {
+                    enabled: true
+                    }
+            },
+            responsive: {
+                rules: [{
+                    condition: {
+                        maxWidth: 100
+                    },
+                    chartOptions: {
+                        legend: {
+                            layout: 'horizontal',
+                            align: 'center',
+                            verticalAlign: 'bottom'
+                        }
+                    }
+                }]
+            }
+        });
+
+    </script>
+
+
+{% endblock %}

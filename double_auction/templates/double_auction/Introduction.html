@@ -1,0 +1,22 @@
+{% extends "global/Page.html" %}
+{% load staticfiles otree %}
+
+{% block title %}
+
+{% endblock %}
+
+{% block scripts %}
+
+{% endblock %}
+
+
+{% block content %}
+    {% csrf_token %}
+    {% include Constants.instructions_template %}
+
+
+    {% next_button %}
+
+
+{% endblock %}
+

@@ -1,0 +1,17 @@
+{% extends 'double_auction/includes/base_block_btc.html' %}
+{% block title %}Your repository{% endblock %}
+{% block content %}
+
+        <table class="table table-striped header-fixed ">
+            <thead>
+            <tr>
+                <th style="width:  50%"> {% if player.role == 'buyer' %}Value{% else %}Cost{% endif %}</th>
+                <th style="width:  50%">Quantity</th>
+            </tr>
+            </thead>
+            <tbody class="repo_container_btc">
+            {% include 'double_auction/includes/repo_to_render_btc.html' %}
+            </tbody>
+        </table>
+
+{% endblock %}

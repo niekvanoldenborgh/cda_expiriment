@@ -1,0 +1,35 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}
+ {% if player.disconnection_flag == 1 %}
+    You are disconnected
+ {% else %}
+    You are dropped out to balance the number of remaining players
+ {% endif %}
+{% endblock %}
+
+{% block content %}
+
+
+
+<div class="">
+    {{ player.payment_message }}
+    Your total payment is {{ player.Currency_symbol}}{{ player.participant.payoff }}.
+    Please fill up a questionnaire and provide your {{ player.Currency_contact_info}} before leaving us.
+
+</div>
+
+
+
+    {% next_button %}
+
+{% endblock %}
+
+
+{% block scripts %}
+    {#  Here we include javascript block where we connect via websockets to oTree server  #}
+    {% include './includes/channel-js.html' %}
+{% endblock %}
+
+

@@ -1,0 +1,79 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}
+    {% if role_label == 'Buyer' %}Dividing the Initial Endowment{% else %}Allocating the Packages{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="row generalrow">
+    <div class="form-group col-md-12 form-inline">
+        {% include 'double_auction/includes/general_info_block_nonauction.html' %}
+    </div>
+</div>
+
+{% if role_label == 'Seller' %}
+    <div class="form-row align-items-center">
+        {% formfield player.allocation_unit_dollar label=allocation_unit_dollar_label %}
+
+        <div class="form-group col-md-6 form-inline">
+            <label for="allocation_unit_btc" class="mr-3">{{ allocation_unit_btc_label }}</label>
+            <input
+                type="number"
+                class="form-control"
+                id="allocation_unit_btc"
+                readonly
+                name="allocation_unit_btc"
+                value="{{ allocation_unit_btc_val }}"
+            >
+            <input type="hidden" name="seller_endowment" id="seller_endowment" value="{{ seller_endowment }}">
+        </div>
+    </div>
+{% endif %}
+
+{% if role_label == 'Buyer' %}
+    {% formfield player.allocation_dollar label=allocation_dollar_label %}
+
+    <div class="form-group col-md-6 form-inline">
+        <label for="allocation_dollar_save" class="mr-3">{{ allocation_dollar_save_label }}</label>
+        <input
+            type="number"
+            class="form-control"
+            id="allocation_dollar_save"
+            readonly
+            name="allocation_dollar_save"
+            value="{{ allocation_dollar_save_val }}"
+        >
+        <input type="hidden" name="buyer_dollar_endowment" id="buyer_dollar_endowment" value="{{ buyer_dollar_endowment }}">
+    </div>
+
+    {% formfield player.allocation_btc label=allocation_btc_label %}
+
+    <div class="form-group col-md-6 form-inline">
+        <label for="allocation_btc_save" class="mr-3">{{ allocation_btc_save_label }}</label>
+        <input
+            type="number"
+            class="form-control"
+            id="allocation_btc_save"
+            readonly
+            name="allocation_btc_save"
+            value="{{ allocation_btc_save_val }}"
+        >
+        <input type="hidden" name="buyer_btc_endowment" id="buyer_btc_endowment" value="{{ buyer_btc_endowment }}">
+    </div>
+{% endif %}
+
+{% next_button %}
+{% endblock %}
+
+{% block styles %}
+<link href="{% static "market.css" %}" rel="stylesheet">
+{% endblock %}
+
+{% block scripts %}
+    {% include 'double_auction/includes/channel-js.html' %}
+{% endblock %}
+
+
+
