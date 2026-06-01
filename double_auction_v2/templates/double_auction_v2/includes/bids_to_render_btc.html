@@ -1,0 +1,7 @@
+{% for b in bids_btc %}
+    <tr {% if b.player == player %}class="text-light bg-success"{% endif %}>
+        <td style="width: 30%" class="filterable-cell">{{ b.price }}</td>
+        <td style="width: 40%" class="filterable-cell">{{ b.quantity }}</td>
+        <td style="width: 30%">{% if b.player == player %}(You!){% else %}&nbsp;{% endif %}</td>
+    </tr>
+{% endfor %}

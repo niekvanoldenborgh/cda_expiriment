@@ -1,0 +1,29 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}
+    End of the Sequence
+{% endblock %}
+
+{% block content %}
+
+<div class="">
+    {{ player.payment_message }}
+    Your total payment is {{ player.participant.payoff }} from the experimental earnings plus 9 euros of compensation fee.
+    Please fill up a questionnaire and provide IBAN before leaving us.
+</div>
+
+
+
+    {% next_button %}
+
+{% endblock %}
+
+
+{% block scripts %}
+    {#  Here we include javascript block where we connect via websockets to oTree server  #}
+    {% include 'double_auction_v2/includes/channel-js.html' %}
+{% endblock %}
+
+
+

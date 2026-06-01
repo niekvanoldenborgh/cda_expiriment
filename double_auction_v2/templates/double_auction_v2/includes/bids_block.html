@@ -1,0 +1,22 @@
+<div class="col-md-3">
+    <div class="card my-3">
+        <div class="card-body dollar_house">
+            <h4 class="card-title">Bids</h4>
+
+            <table class="table table-striped header-fixed">
+                <thead>
+                    <tr>
+                        <th style="width: 30%">Price</th>
+                        <th style="width: 40%">Quantity</th>
+                        <th style="width: 30%">&nbsp;</th>
+                    </tr>
+                </thead>
+                <tbody class="bids_container">
+                    {% include 'double_auction_v2/includes/bids_to_render.html' %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+

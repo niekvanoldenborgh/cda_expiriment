@@ -1,0 +1,156 @@
+
+
+.hidden_field {
+    display:none !important;
+}
+
+.bitaskspread td, .bitaskspread th {
+    text-align: center;
+}
+.dollar_house {
+    background-color: #ffd1e7;
+}
+
+.btc_house {
+    background-color: #d1f3ff;
+}
+
+.contracts-table {
+    height: 60%px !important;
+}
+
+
+.general_info_table td:first-of-type {
+    width: 85%;
+    padding-right: 0.5rem;
+}
+
+.table, .table td,  .table th, .table tbody {
+    border: 0.1px solid #07191d !important ;
+}
+
+.temp-body {
+    overflow: scroll;
+    width: 100%;
+}
+
+::-webkit-scrollbar {
+  -webkit-appearance: none;
+  width: 7px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 1px;
+  background-color: rgba(0, 0, 0, .5);
+  box-shadow: 0 0 0.5px rgba(255, 255, 255, .5);
+}
+
+.container-fluid{
+    min-width: 1200px;
+    overflow-x: auto;
+}
+
+
+.card-body {
+    padding: 0.5rem;
+}
+
+.col-md-4{
+    max-width: 31%;
+}
+
+.col-md-3{
+    max-width: 19%;
+}
+
+.my-3{
+    margin-bottom: 0.25rem !important;
+    margin-top: 0.25rem !important;
+}
+
+.generalrow {
+    width: 100%;
+    max-width: 1200px;
+
+}
+
+/* .otree-timer {
+    display: none !important;
+} */
+
+.otree-timer__time-left {
+    color: red;
+    font-weight: 600;
+}
+
+
+.toprow {
+    width: 100%;
+    min-height:40vh;
+    max-width: 1200px;
+}
+.bottomrow{
+    width: 100%;
+    min-height:40vh;
+    max-width: 1200px;
+}
+
+.header-fixed {
+    width: 100%
+}
+
+.header-fixed > thead,
+.header-fixed > tbody,
+.header-fixed > thead > tr,
+.header-fixed > tbody > tr,
+.header-fixed > thead > tr > th,
+.header-fixed > tbody > tr > td {
+    display: block;
+}
+
+.header-fixed > tbody > tr:after,
+.header-fixed > thead > tr:after {
+    content: ' ';
+    display: block;
+    visibility: hidden;
+    clear: both;
+}
+
+.contracts-table > tbody {
+    overflow-y: auto;
+    height: 113px;
+}
+
+.col-md-3 .header-fixed > tbody {
+    overflow-y: auto;
+    height: 298px;
+}
+
+
+.header-fixed > tbody > tr > td,
+.header-fixed > thead > tr > th {
+
+    float: left;
+    line-height: 0.3em;
+     font-size: smaller;
+    white-space: nowrap;
+}
+
+.tablecol-4 > tbody > tr > td,
+.tablecol-4 > thead > tr > th {
+    width: 25%;
+}
+
+.tablecol-2 > tbody > tr > td,
+.tablecol-2 > thead > tr > th {
+    width: 50%;
+}
+
+
+/* On smaller screens, stack nicely */
+@media (max-width: 1200px){
+  .market-col{ flex: 0 0 calc(50% - 12px); } /* 2 columns */
+}
+@media (max-width: 700px){
+  .market-col{ flex: 0 0 100%; }             /* 1 column */
+}

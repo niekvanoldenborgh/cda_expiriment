@@ -1,0 +1,53 @@
+<div class="form-row">
+    <div class="form-group col-md-6 form-inline">
+        <label for="price" class="mr-3">Price:</label>
+
+        <input tabindex="10" type="number" class="form-control" id="price_btc" placeholder=""
+               {% if no_slots_or_funds_btc %}readonly{% endif %}
+               name="price">
+    </div>
+    <div class="form-group col-md-6 form-inline">
+        <label for="quantity_id" class="mr-3">Quantity:</label>
+        <input type="number" class="form-control" id="quantity_id_btc"
+               placeholder="1" {% if no_slots_or_funds_btc %}readonly{% endif %}
+               name="quantity" value="1">
+    </div>
+</div>
+<div class="form-row">
+    <div class="form-group col-md-12">
+
+        <button type="button"
+                class="btn btn-primary btn-block btn-sm"
+                id="submit_statement_btc"
+                {% if no_slots_or_funds_btc %}disabled{% endif %}
+        >
+            Submit {{ player.action_name }}
+        </button>
+    </div>
+
+
+</div>
+<div class="form-row">
+    <div class="form-group col-md-6">
+
+        <button type="button"
+                class="btn btn-primary btn-block btn-sm"
+                id="best_statement_btc"
+                {% if no_slots_or_funds_btc %}disabled{% endif %}
+        >
+            Accept best {{ player.action_name_reverse }}
+        </button>
+    </div>
+    <div class="form-group col-md-6">
+        <button type="button"
+                class="btn btn-danger btn-block btn-sm"
+                id="retract_statement_btc"
+                {% if no_slots_or_funds_btc %}disabled{% endif %}
+        >Retract
+            last {{ player.action_name }}
+        </button>
+    </div>
+</div>
+<div>
+
+</div>

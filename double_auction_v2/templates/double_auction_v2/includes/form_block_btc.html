@@ -1,0 +1,50 @@
+{% load double_auction_extras %}
+
+<div class="col-md-4">
+  <div class="card my-3">
+    <div class="card-body btc_house">
+
+      <table class="table table-sm table-striped">
+        <thead>
+          <tr>
+            <th>Market B</th>
+            <th>Price</th>
+            <th>Quantity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% with last=player.get_last_statement_btc %}
+          <tr>
+            <th>Your last {{ player.action_name }}:</th>
+            <td id="last_statement_price_btc">
+              {% if last %}{{ last.price }}{% endif %}
+            </td>
+            <td id="last_statement_quantity_btc">
+              {% if last %}{{ last.quantity }}{% endif %}
+            </td>
+          </tr>
+          {% endwith %}
+        </tbody>
+      </table>
+
+      <div class="form_container_btc" id="form_container_btc">
+        {% include "double_auction_v2/includes/form_to_render_btc.html" %}
+      </div>
+
+      <table class="table table-sm bitaskspread">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Price</th>
+            <th>Quantity</th>
+          </tr>
+        </thead>
+        <tbody class="spread_container_btc" id="spread_container_btc">
+          {% include "double_auction_v2/includes/spread_to_render_btc.html" %}
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+

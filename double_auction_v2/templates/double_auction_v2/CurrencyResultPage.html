@@ -1,0 +1,117 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}
+    Currency Exchange Result
+{% endblock %}
+
+{% block styles %}
+    <link href="{% static "double_auction_v2/market.css" %}" rel="stylesheet">
+
+{% endblock %}
+{% block content %}
+
+        <div class="row generalrow">
+            <div class="form-group col-md-12 form-inline">
+            {% include 'double_auction_v2/includes/general_info_block_nonauction.html' %}
+
+            </div>
+        </div>
+
+{% if group.dollar_btc_rate == 0 %}
+
+<div>No exchange took place</div>
+
+{% else %}
+
+
+<div class="form-group row">
+    <div class=" col-md-6  ">
+
+  <table class="table-stripped table table-sm table-bordered text-right ">
+
+
+      <tr>
+            <td>Currency A exchanged:</td>
+            <td>{{ player.exchange_dollar }}</td>
+      </tr>
+      <tr>
+            <td>Currency exchange rate (Currency A per B):</td>
+            <td>* {{ group.btc_dollar_rate }}</td>
+      </tr>
+      <tr>
+            <td>Currency B you just purchased:</td>
+            <td class="font-weight-bold">= {{ player.purchased_btc }}</td>
+      </tr>
+      <tr>
+            <td>Currency B endowment before exchange:</td>
+            <td>+ {{ player.previous_btc }}</td>
+      </tr>
+      <tr>
+            <td>Currency B you just sold:</td>
+            <td>- {{ player.exchange_btc }}</td>
+      </tr>
+      <tr>
+            <td>Current Currency B endowment:</td>
+            <td class="font-weight-bold">= {{ player.allocation_btc }}</td>
+      </tr>
+
+    </table>
+        </div>
+
+    <div class=" col-md-6">
+        <table class="table-stripped table table-sm table-bordered text-right ">
+
+      <tr>
+            <td>Currency B exchanged:</td>
+            <td>{{ player.exchange_btc }}</td>
+      </tr>
+      <tr>
+            <td>Currency exchange rate (Currency B per A):</td>
+            <td>* {{ group.dollar_btc_rate }}</td>
+      </tr>
+      <tr>
+            <td>Currency A you just purchased:</td>
+            <td class="font-weight-bold">= {{ player.purchased_dollar }}</td>
+      </tr>
+      <tr>
+            <td>Currency A endowment before exchange:</td>
+            <td>+ {{ player.previous_dollar }}</td>
+      </tr>
+      <tr>
+            <td>Currency A you just sold:</td>
+            <td>- {{ player.exchange_dollar }}</td>
+      </tr>
+      <tr>
+            <td>Current Currency A endowment:</td>
+            <td class="font-weight-bold">= {{ player.allocation_dollar }}</td>
+      </tr>
+
+        </table>
+    </div>
+</div>
+
+{% endif %}
+
+    {% next_button %}
+
+
+<b>
+{% if player.is_display == False %}
+    {% if player.role == 'buyer' %}
+    You will not enter the reopened auction house, as there is no fund left for trading.
+    {% else %}
+    You will not enter the reopened auction house, as there is no item available for trading left
+    {% endif %}
+
+{% endif %}
+</b>
+
+{% endblock %}
+{% block scripts %}
+    {#  Here we include javascript block where we connect via websockets to oTree server  #}
+    {% include './includes/channel-js.html' %}
+{% endblock %}
+
+
+

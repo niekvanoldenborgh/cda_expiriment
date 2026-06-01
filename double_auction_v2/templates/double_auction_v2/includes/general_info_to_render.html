@@ -1,0 +1,12 @@
+        <button type="button" class="btn btn-danger" id="randomG_button" name="RandomNumber" onclick="count_click()">Instruction</button>
+{% if group.sequence_number == 0 %}
+         This is a <strong>training period </strong> and chips earned in this period won't count towards your earnings.
+            {% else %}
+This is period <b>{{ group.round_within_sequence }}</b> of Sequence {{group.sequence_number}}.
+        {% endif %}
+        You are a <b>{{ player.role}}</b>.
+You have <b id="geninfo_allocation_dollar">{{ player.allocation_dollar }}</b> units of Currency A
+and <b id="geninfo_allocation_btc">{{ player.allocation_btc }}</b> units of Currency B.
+Provisional earnings from previous periods in the sequence:
+<b>{{ player.thissequence_euro }}</b>.
+

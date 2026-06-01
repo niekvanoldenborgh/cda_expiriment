@@ -1,0 +1,28 @@
+<div class="col-md-4">
+  <div class="card my-3">
+    <div class="card-body btc_house">
+
+      <table class="table table-striped table-sm table-bordered">
+        <tbody class="profit_container_btc">
+          {% include "double_auction_v2/includes/profit_to_render_btc.html" %}
+        </tbody>
+      </table>
+
+      <h4>Trade History</h4>
+
+      <table class="table table-striped header-fixed tablecol-4 contracts-table">
+        <thead>
+          <tr>
+            <th style="width: 30%" class="filterable-cell">Quantity</th>
+            <th style="width: 40%" class="filterable-cell">Chips content</th>
+            <th style="width: 30%" class="filterable-cell">Price</th>
+          </tr>
+        </thead>
+        <tbody class="contracts_container_btc" id="contracts_rows_btc">
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+

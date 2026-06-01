@@ -1,0 +1,285 @@
+<script>
+    var statement_type = '{{ player.action_name }}';
+    var l = function (x) {
+        console.log(x);
+    };
+    $(function () {
+        var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+        var ws_path = ws_scheme + '://' + window.location.host + "/market_channel/{{ participant.code }}/{{ page_index }}/";
+        var socket = new ReconnectingWebSocket(ws_path);
+		
+		socket.onopen = function () {
+			console.log("WS OPEN", ws_path);
+		};
+
+		socket.onclose = function (e) {
+			console.log("WS CLOSED", e.code, e.reason);
+		};
+
+		socket.onerror = function (e) {
+			console.log("WS ERROR", e);
+		};
+
+
+        var $asks_container = $('tbody.asks_container');
+        var $asks_container_btc = $('tbody.asks_container_btc');
+
+        var $bids_container = $('tbody.bids_container');
+        var $bids_container_btc = $('tbody.bids_container_btc');
+
+        var $spread_container = $('tbody.spread_container');
+        var $spread_container_btc = $('tbody.spread_container_btc');
+        var $repo_container = $('tbody.repo_container');
+        var $repo_container_btc = $('tbody.repo_container_btc');
+        var $contracts_container = $('tbody.contracts_container');
+        var $contracts_container_btc = $('tbody.contracts_container_btc');
+        var $form_container = $('div.form_container');
+        var $form_container_btc = $('div.form_container_btc');
+        var $profit_container = $('tbody.profit_container');
+        var $profit_container_btc = $('tbody.profit_container_btc');
+        var $general_info_container = $('.general_info_container');
+        var $market_over_modal = $('div.market_over_modal');
+        var $warning_modal = $('div.warning_modal');
+        var $round_statement = $('#round_number');
+
+        socket.onmessage = function (event) {
+            var obj = jQuery.parseJSON(event.data);
+            $asks_container.html(obj.asks);
+            $bids_container.html(obj.bids);
+            $asks_container_btc.html(obj.asks_btc);
+            $bids_container_btc.html(obj.bids_btc);
+            $spread_container.html(obj.spread);
+            $spread_container_btc.html(obj.spread_btc);
+            $repo_container.html(obj.repo);
+            $repo_container_btc.html(obj.repo_btc);
+            $contracts_container.html(obj.contracts);
+            $contracts_container_btc.html(obj.contracts_btc);
+            $profit_container.html(obj.profit);
+            $profit_container_btc.html(obj.profit_btc);
+            $general_info_container.html(obj.general_info);
+            $form_container.html(obj.form);
+            $form_container_btc.html(obj.form_btc);
+            var has_over_message = obj.hasOwnProperty('presence');
+            if (has_over_message) {
+
+
+                if (obj.presence.market_over === true) {
+
+                    $market_over_modal.find('.modal-message').html(obj.presence.over_message);
+                    $market_over_modal.modal({backdrop: 'static', keyboard: false}, 'show');
+                    socket.close();
+                }
+            }
+
+            var has_warning = obj.hasOwnProperty('warning');
+            if (has_warning) {
+                if (obj.warning.market_over === 'partialA') {
+                    $warning_modal.find('.modal-message').html(obj.warning.over_message);
+                    $warning_modal.modal({backdrop: 'static', keyboard: false}, 'show');
+                    $('.warning-btn').focus();
+                    $('input#price').prop( "disabled", true );
+                    $('input#quantity_id').prop( "disabled", true );
+                }
+                else if (obj.warning.market_over === 'partialB') {
+                    $warning_modal.find('.modal-message').html(obj.warning.over_message);
+                    $warning_modal.modal({backdrop: 'static', keyboard: false}, 'show');
+                    $('.warning-btn').focus();
+                    $('input#price_btc').prop( "disabled", true );
+                    $('input#quantity_id_btc').prop( "disabled", true );
+                }
+
+                else {
+                $warning_modal.find('.modal-message').html(obj.warning);
+                $warning_modal.modal({backdrop: 'static', keyboard: false}, 'show');
+                $('.warning-btn').focus();
+                }
+            }
+
+            var has_last_statement = obj.hasOwnProperty('last_statement');
+
+
+            if (has_last_statement) {
+                var last_statement = obj.last_statement;
+                $('#last_statement_price').html(last_statement.price);
+                $('#last_statement_quantity').html(last_statement.quantity);
+            } else {
+                $('#last_statement_price').html('');
+                $('#last_statement_quantity').html('');
+            }
+
+            var has_last_statement_btc = obj.hasOwnProperty('last_statement_btc');
+
+            if (has_last_statement_btc) {
+                var last_statement_btc = obj.last_statement_btc;
+                $('#last_statement_price_btc').html(last_statement_btc.price);
+                $('#last_statement_quantity_btc').html(last_statement_btc.quantity);
+            } else {
+                $('#last_statement_price_btc').html('');
+                $('#last_statement_quantity_btc').html('');
+            }
+
+        };
+
+        $form_container.on('click', 'button#submit_statement', function () {
+            var $price_inp = $('input#price');
+            var $quantity_inp = $('input#quantity_id');
+            var price = $price_inp.val();
+            var quantity = $quantity_inp.val();
+            var error =0
+
+            {#            todo: something more sophisticated to deal with erroneous prices#}
+            if (price <= 0) {
+                alert('Price in the dollar auction house has to be positive')
+                error = 1
+                };
+            if (Math.floor(price) != price){
+                if (price.toString().split(".")[1].length >2){
+                    alert('Price can have at most 2 decimal places.')
+                    error = 1
+                    };
+                };
+
+
+            if (Number.isInteger(parseFloat(quantity)) == false) {
+                alert('Quantity in the dollar auction house has to be an integer')
+                error = 1
+                };
+            if (parseFloat(quantity) <= 0) {
+                alert('Quantity in the dollar auction house has to be positive')
+                error = 1
+                }
+            if (price > 0 && error == 0) {
+                var msg = {
+                    'action': 'new_statement',
+                    'type': statement_type,
+                    'price': $price_inp.val(),
+                    'quantity': $quantity_inp.val(),
+                    'round_statement': $round_statement.html(),
+                    'house':0,
+                };
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify(msg));
+                }
+                ;
+                {#$price_inp.val('').focus();  we don't need focus #}
+            }
+        });
+        $form_container.on('keydown', 'input#price', function () {
+
+            var $btn_answer = $('button#submit_statement');
+            if (event.keyCode === 13) {
+
+                event.preventDefault();
+                $btn_answer.click();
+                return false;
+            }
+        });
+        $form_container.on('click', 'button#retract_statement', function () {
+
+            var msg = {
+                'action': 'retract_statement',
+
+            };
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(msg));
+            }
+            ;
+        });
+
+        $form_container.on('click', 'button#best_statement', function () {
+
+            var msg = {
+                'action': 'best_statement',
+
+            };
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(msg));
+            }
+            ;
+        });
+
+
+
+        $form_container_btc.on('click', 'button#submit_statement_btc', function () {
+            var $price_inp_btc = $('input#price_btc');
+            var $quantity_inp_btc = $('input#quantity_id_btc');
+            var price_btc = $price_inp_btc.val();
+            var quantity_btc = $quantity_inp_btc.val();
+            var error =0
+
+            {#            todo: something more sophisticated to deal with erroneous prices#}
+            if (price_btc <= 0) {
+                alert('Price in the Bitcoin auction house has to be positive')
+                error =1
+                };
+
+            if (Math.floor(price_btc) != price_btc){
+                if (price_btc.toString().split(".")[1].length >2){
+                    alert('Price can have at most 2 decimal places.')
+                    error = 1
+                    };
+                };
+            if (Number.isInteger(parseFloat(quantity_btc)) == false) {
+                alert('Quantity in the Bitcoin auction house has to be an integer')
+                error =1
+                };
+            if (parseFloat(quantity_btc) <= 0) {
+                alert('Quantity in the Bitcoin auction house has to be positive')
+                error =1
+                };
+
+
+            if (price_btc > 0 && error == 0) {
+                var msg = {
+                    'action': 'new_statement',
+                    'type': statement_type,
+                    'price': $price_inp_btc.val(),
+                    'quantity': $quantity_inp_btc.val(),
+                    'round_statement': $round_statement.html(),
+                    'house':1,
+                };
+
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify(msg));
+                }
+                ;
+            }
+
+
+        });
+
+        $form_container_btc.on('keydown', 'input#price_btc', function () {
+
+            var $btn_answer_btc = $('button#submit_statement_btc');
+            if (event.keyCode === 13) {
+
+                event.preventDefault();
+                $btn_answer_btc.click();
+                return false;
+            }
+        });
+        $form_container_btc.on('click', 'button#retract_statement_btc', function () {
+
+            var msg = {
+                'action': 'retract_statement_btc',
+
+            };
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(msg));
+            }
+            ;
+        });
+
+        $form_container_btc.on('click', 'button#best_statement_btc', function () {
+            var msg = {
+                'action': 'best_statement_btc',
+
+            };
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(msg));
+            }
+            ;
+        });
+    })
+    ;
+</script>

@@ -1,0 +1,28 @@
+
+{% block content %}
+<div class="col-md-12">
+    <div class="card my-3">
+        <div class="card-body">
+
+    <table >
+    <tr>
+        <td>  {% if group.sequence_number == 0 %}
+            This is a <strong> training period </strong> and chips earned in this period won't count towards your earnings.
+            {% else %}This is period <b>{{ group.round_within_sequence }}</b> of Sequence {{group.sequence_number}}.
+            {% endif %}
+            You are a <b>{{ role_label }}</b>.
+
+Provisional earnings from previous periods in the sequence:
+<b>{{ player.Currency_symbol}}{{ player.thissequence_euro }}</b>.
+
+        Time remaining:
+        <font color="red"><span class="otree-timer__time-left" ></span></font>
+        </td>
+
+        </tr>
+
+    </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

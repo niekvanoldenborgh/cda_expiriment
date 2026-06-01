@@ -1,0 +1,62 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}
+ {% if group.current_block_contains_true_end %}
+    End of the Sequence
+ {% else %}
+    End of the Block
+ {% endif %}
+{% endblock %}
+
+{% block content %}
+
+
+
+<div class="">
+{% if group.current_block_contains_true_end %}
+    {% if group.sequence_number == 0 %}
+        The training sequence has ended. The hidden ending period was period {{ group.current_sequence_true_end }}.
+        {% if group.discarded_rounds_in_current_block > 0 %}
+            Periods after period {{ group.current_sequence_true_end }} in this completed block are discarded and do not count for earnings.
+        {% endif %}
+        Counted earnings from the training sequence: <b>{{ player.counted_sequence_euro }}</b>.
+        <strong>You will be starting the paid experiment.</strong>
+    {% else %}
+        Sequence {{ group.sequence_number }} has ended. The hidden ending period was period {{ group.current_sequence_true_end }}.
+        {% if group.discarded_rounds_in_current_block > 0 %}
+            Periods after period {{ group.current_sequence_true_end }} in this completed block are discarded and do not count for earnings.
+        {% endif %}
+        Counted earnings from sequence {{ group.sequence_number }}: <b>{{ player.counted_sequence_euro }}</b>.
+        {% if group.is_last_sequence == 1 %}
+            There is no more time for an additional sequence. The experiment ends here.
+        {% else %}
+            You will be starting a new sequence. Your currency and chip holdings will be reset.
+        {% endif %}
+    {% endif %}
+{% else %}
+    {% if group.sequence_number == 0 %}
+        The training sequence continues to another block of {{ group.block_length }} periods.
+        Provisional earnings so far in the training sequence: <b>{{ player.thissequence_euro }}</b>.
+    {% else %}
+        Block {{ group.current_block_number }} of sequence {{ group.sequence_number }} is complete.
+        This sequence continues to another block of {{ group.block_length }} periods.
+        Provisional earnings so far in this sequence: <b>{{ player.thissequence_euro }}</b>.
+    {% endif %}
+{% endif %}
+</div>
+
+
+
+    {% next_button %}
+
+{% endblock %}
+
+
+{% block scripts %}
+    {#  Here we include javascript block where we connect via websockets to oTree server  #}
+    {% include 'double_auction_v2/includes/channel-js.html' %}
+{% endblock %}
+
+
+

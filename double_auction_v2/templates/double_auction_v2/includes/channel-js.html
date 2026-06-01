@@ -1,0 +1,42 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // SELLER: auto-update BTC allocation based on dollar allocation
+  const sellerEndowment = document.getElementById('seller_endowment');
+  const sellerDollarAlloc = document.getElementById('id_allocation_unit_dollar');
+  const sellerBtcAlloc = document.getElementById('allocation_unit_btc');
+
+  if (sellerEndowment && sellerDollarAlloc && sellerBtcAlloc) {
+    sellerDollarAlloc.addEventListener('input', function () {
+      const endow = Number(sellerEndowment.value || 0);
+      const usd = Number(sellerDollarAlloc.value || 0);
+      sellerBtcAlloc.value = Math.max(0, endow - usd);
+    });
+  }
+
+  // BUYER: auto-update dollar saving
+  const buyerDollarEndowment = document.getElementById('buyer_dollar_endowment');
+  const buyerDollarAlloc = document.getElementById('id_allocation_dollar');
+  const buyerDollarSave = document.getElementById('allocation_dollar_save');
+
+  if (buyerDollarEndowment && buyerDollarAlloc && buyerDollarSave) {
+    buyerDollarAlloc.addEventListener('input', function () {
+      const endow = Number(buyerDollarEndowment.value || 0);
+      const alloc = Number(buyerDollarAlloc.value || 0);
+      buyerDollarSave.value = Math.max(0, endow - alloc);
+    });
+  }
+
+  // BUYER: auto-update btc saving
+  const buyerBtcEndowment = document.getElementById('buyer_btc_endowment');
+  const buyerBtcAlloc = document.getElementById('id_allocation_btc');
+  const buyerBtcSave = document.getElementById('allocation_btc_save');
+
+  if (buyerBtcEndowment && buyerBtcAlloc && buyerBtcSave) {
+    buyerBtcAlloc.addEventListener('input', function () {
+      const endow = Number(buyerBtcEndowment.value || 0);
+      const alloc = Number(buyerBtcAlloc.value || 0);
+      buyerBtcSave.value = Math.max(0, endow - alloc);
+    });
+  }
+});
+</script>

@@ -1,0 +1,32 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}
+    Are you still there?
+{% endblock %}
+
+{% block content %}
+
+        <audio  controls autoplay loop>
+  <source src="{% static "video/clock_ticking.mp3" %}" type="audio/mp3">
+</audio>
+
+<div class="">
+
+
+    <font size="12"> Please click next within </font><font size="12" color="red"><span class="otree-timer__time-left"></span></font>
+
+</div>
+
+
+
+    {% next_button %}
+
+{% endblock %}
+
+
+{% block scripts %}
+    {#  Here we include javascript block where we connect via websockets to oTree server  #}
+    {% include './includes/channel-js.html' %}
+{% endblock %}
+
