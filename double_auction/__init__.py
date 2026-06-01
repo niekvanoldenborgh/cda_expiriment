@@ -13,8 +13,6 @@ from django.db.models.signals import post_save, pre_save
 from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
 
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 
 from django.db.models.query import QuerySet
 
@@ -126,10 +124,7 @@ class Subsession(BaseSubsession):
         for g in self.get_groups():
             g.set_role()
 
-    def creating_session(self):
-        self.set_config()
-        if self.session.num_participants % (self.num_buyers + self.num_sellers) != 0:
-            raise Exception("Number of participants is not divisible by number of sellers and buyers")
+
 
 
 class Group(BaseGroup):
@@ -193,11 +188,10 @@ class Group(BaseGroup):
     def get_sellers(self):
         return self.get_players_by_role("seller")
 
+
     def get_contracts(self, house):
-        return Contract.objects.filter(
-            Q(bid__player__group=self) | Q(ask__player__group=self),
-            Q(bid__BTC_Statement=house) | Q(ask__BTC_Statement=house),
-        )
+        return Contract.filter(group=self, BTC_Statement=house)
+
 
     def get_bids(self, house):
         bids = Bid.filter(group=self, active=True, BTC_Statement=house)
@@ -288,7 +282,6 @@ class Group(BaseGroup):
         house_btc_inactive = (self.no_buyers_left(True) or self.no_sellers_left(True))
         if house_dollar_inactive and house_btc_inactive:
             self.active = False
-            self.save()
             msg = {"market_over": True, "over_message": "No trading partners remaining"}
         return msg
 
@@ -303,8 +296,14 @@ class Group(BaseGroup):
             self.active = False
 
     def clear_ask_bid(self):
-        Bid.objects.filter(active=True).update(active=False)
-        Ask.objects.filter(active=True).update(active=False)
+        for b in Bid.filter(group=self, active=True):
+            b.active = False
+
+
+        for a in Ask.filter(group=self, active=True):
+            a.active = False
+
+
 
     # -----------------------
     # SEQUENCE LOGIC (rewritten)
@@ -501,7 +500,6 @@ class Player(BasePlayer):
                                 p.in_round(i + 1).payoff = p.in_round(i + 1).thisround_euro
                             else:
                                 p.in_round(i + 1).payoff = 0
-                    p.save()
                     break
 
         if self.role() == "buyer":
@@ -566,22 +564,22 @@ class Player(BasePlayer):
                 sequence_payment_1 = self.in_round(list_sequence[1]).thissequence_euro
                 self.payment_message = (
                     f"Since you are dropped out in Sequence 2, you will earn euro you made in Sequence 1: "
-                    f"{self.Currency_symbol()}{sequence_payment_1} plus a compensation: {self.Currency_symbol()}{c(12)}."
+                    f"{sequence_payment_1} plus a compensation: {self.Currency_symbol()}{c(12)}."
                 )
             else:
                 sequence_payment_1 = self.in_round(list_sequence[1]).thissequence_euro
                 sequence_payment_2 = self.in_round(list_sequence[2]).thissequence_euro
                 self.payment_message = (
                     f"Since you are dropped out after Sequence 2, you will earn euro you made in Sequence 1: "
-                    f"{self.Currency_symbol()}{sequence_payment_1} and Sequence 2: {self.Currency_symbol()}{sequence_payment_2}."
+                    f"{sequence_payment_1} and Sequence 2: {sequence_payment_2}."
                 )
         else:
             seq1 = self.in_round(list_sequence[self.subsession.paid_sequence_1]).thissequence_euro
             seq2 = self.in_round(list_sequence[self.subsession.paid_sequence_2]).thissequence_euro
             self.payment_message = (
                 f"Sequences {self.subsession.paid_sequence_1} and Sequence {self.subsession.paid_sequence_2} got selected for your earnings. "
-                f"You made {self.Currency_symbol()}{seq1} in Sequences {self.subsession.paid_sequence_1}, and "
-                f"{self.Currency_symbol()}{seq2} in Sequences {self.subsession.paid_sequence_2}."
+                f"You made {seq1} in Sequences {self.subsession.paid_sequence_1}, and "
+                f"{seq2} in Sequences {self.subsession.paid_sequence_2}."
             )
 
     def inherit_sequence_payoff(self):
@@ -598,14 +596,19 @@ class Player(BasePlayer):
         if house is False:
             if self.role() == "buyer":
                 return self.allocation_dollar > 0 and self.has_free_slots(house)
-            return self.get_full_slots(house).exists()
+            return bool(self.get_full_slots(house))   # <- FIX
         else:
             if self.role() == "buyer":
                 return self.allocation_btc > 0 and self.has_free_slots(house)
-            return self.get_full_slots(house).exists()
+            return bool(self.get_full_slots(house))   # <- FIX
+
 
     def get_items(self):
-        return Item.objects.filter(slot__owner=self)
+        items = []
+        for sl in Slot.filter(owner=self):
+            items += Item.filter(slot=sl)
+        return items
+
 
     def get_slots(self, house):
         # Slot is almost certainly an ExtraModel, so use Slot.filter
@@ -799,6 +802,9 @@ class Player(BasePlayer):
         
     def get_last_statement(self):
         # dollar market (BTC_Statement=False)
+        
+        
+        
         if self.role() == "seller":
             stmts = Ask.filter(player=self, active=True, BTC_Statement=False)
         else:
@@ -806,8 +812,11 @@ class Player(BasePlayer):
 
         if not stmts:
             return None
-
+    
+        
         stmts.sort(key=lambda s: (getattr(s, "created_at", 0) or 0), reverse=True)
+        
+        
         return stmts[0]
 
 
@@ -820,6 +829,8 @@ class Player(BasePlayer):
 
         if not stmts:
             return None
+        
+        
 
         stmts.sort(key=lambda s: (getattr(s, "created_at", 0) or 0), reverse=True)
         return stmts[0]
@@ -862,61 +873,74 @@ class Ask(ExtraModel):
     active = models.BooleanField(initial=True)
     created_at = models.FloatField(initial=_now)
 
-    def as_dict(self):
-        return dict(
-            price=str(self.price),
-            quantity=str(self.quantity),
-            quantity_initial=str(self.quantity_initial),
-            round_statement=str(self.round_statement),
-        )
-
     @classmethod
-    def active_qs(cls):
-        return cls.objects.filter(active=True)
+    def active_qs(cls, group, house):
+        # returns a LIST of Ask objects
+        return cls.filter(active=True, group=group, BTC_Statement=house)
 
     @classmethod
     def create_and_match(cls, *, player, BTC_Statement, price, quantity, round_statement):
-        """
-        Replacement for old pre_save/post_save signal logic.
-        Call this instead of Ask.objects.create(...)
-        """
-        # pre-check: seller has enough items in this house
-        items_available = Item.objects.filter(slot__owner=player, slot__BTC=BTC_Statement)
-        if items_available.count() < int(quantity):
-            raise NotEnoughItemsToSell(player, BTC_Statement, items_available.count())
 
-        # deactivate previous asks from this player/house/round
-        cls.active_qs().filter(
+        # ---- pre-check: seller has enough items in this house
+        slots = Slot.filter(owner=player, BTC=BTC_Statement)
+       
+        items_count = 0
+        for sl in slots:
+            for it in Item.filter(slot=sl):
+                items_count += int(it.quantity or 0)
+
+        if items_count < int(quantity):
+            raise NotEnoughItemsToSell(player, BTC_Statement, items_count)
+
+        group = player.group
+        price = float(price)
+        quantity = int(quantity)
+        round_statement = int(round_statement)
+
+        # ---- deactivate previous asks from this player/house/round
+        old_asks = cls.filter(
+            active=True,
+            group=group,
             player=player,
             BTC_Statement=BTC_Statement,
             round_statement=round_statement,
-        ).update(active=False)
+        )
+        for a in old_asks:
+            a.active = False
+        
+        
 
-        ask = cls.objects.create(
-            group =player.group,
+        # ---- create new ask
+        ask = cls.create(
+            group=group,
             player=player,
             BTC_Statement=BTC_Statement,
-            price=float(price),
-            quantity=int(quantity),
-            quantity_initial=int(quantity),
-            round_statement=int(round_statement),
+            price=price,
+            quantity=quantity,
+            quantity_initial=quantity,
+            round_statement=round_statement,
             active=True,
             created_at=_now(),
         )
 
-        # try match against best bids
-        group = player.group
-        while True:
-            bids = Bid.active_qs().filter(
-                player__group=group,
+        # ---- match loop
+        while ask.active and ask.quantity > 0:
+
+            bids = Bid.filter(
+                active=True,
+                group=group,
                 BTC_Statement=BTC_Statement,
                 round_statement=round_statement,
-                price__gte=ask.price,
-            ).order_by("price", "created_at")
-            if not bids.exists() or not ask.active or ask.quantity <= 0:
+            )
+
+            # keep only bids that meet price
+            bids = [b for b in bids if float(b.price) >= float(ask.price)]
+            if not bids:
                 break
 
-            bid = bids.last()
+            # pick best bid: highest price, then earliest created_at
+            bids.sort(key=lambda b: (-float(b.price), float(b.created_at)))
+            bid = bids[0]
 
             # funds check on buyer
             if bid.BTC_Statement is False:
@@ -927,13 +951,21 @@ class Ask(ExtraModel):
                     raise NotEnoughFunds(bid.player, bid.BTC_Statement, bid.player.allocation_btc)
 
             item = player.item_to_sell(BTC_Statement)
-            if item:
-                Contract.create(group=player.group, item=item, bid=bid, ask=ask, price=min(float(bid.price), float(ask.price)))
+            if not item:
+                # seller ran out unexpectedly; stop
+                break
 
-            # refresh quantities (because Contract.create updates)
-            ask = cls.objects.get(id=ask.id)
+            Contract.execute_trade(
+                group=group,
+                item=item,
+                bid=bid,
+                ask=ask,
+                price=min(float(bid.price), float(ask.price)),
+            )
+
 
         return ask
+
 
 
 class Bid(ExtraModel):
@@ -956,57 +988,82 @@ class Bid(ExtraModel):
         )
 
     @classmethod
-    def active_qs(cls):
-        return cls.objects.filter(active=True)
+    def active_qs(cls, group, house):
+        # returns a LIST of Bid objects
+        return cls.filter(active=True, group=group, BTC_Statement=house)
 
     @classmethod
     def create_and_match(cls, *, player, BTC_Statement, price, quantity, round_statement):
         """
-        Replacement for old pre_save/post_save signal logic.
+        oTree6 ExtraModel-compatible replacement for old signal logic.
         Call this instead of Bid.objects.create(...)
         """
-        # pre-check: buyer has enough funds for 1 unit (your old logic mostly checked 1 unit too)
+        group = player.group
+        price = float(price)
+        quantity = int(quantity)
+        round_statement = int(round_statement)
+
+        # ---- pre-check: buyer has enough funds for total quantity
+        total_cost = price * quantity
         if BTC_Statement is False:
-            if player.allocation_dollar < float(price) * int(quantity):
+            if player.allocation_dollar < total_cost:
                 raise NotEnoughFunds(player, BTC_Statement, player.allocation_dollar)
         else:
-            if player.allocation_btc < float(price) * int(quantity):
+            if player.allocation_btc < total_cost:
                 raise NotEnoughFunds(player, BTC_Statement, player.allocation_btc)
 
-        # deactivate previous bids from this player/house/round
-        cls.active_qs().filter(
+        # ---- deactivate previous bids from this player/house/round
+        old_bids = cls.filter(
+            active=True,
+            group=group,
             player=player,
             BTC_Statement=BTC_Statement,
             round_statement=round_statement,
-        ).update(active=False)
+        )
+        
 
-        bid = cls.objects.create(
-            group=player.group,
+        for b in old_bids:
+            b.active = False
+
+
+        # ---- create new bid
+        bid = cls.create(
+            group=group,
             player=player,
             BTC_Statement=BTC_Statement,
-            price=float(price),
-            quantity=int(quantity),
-            quantity_initial=int(quantity),
-            round_statement=int(round_statement),
+            price=price,
+            quantity=quantity,
+            quantity_initial=quantity,
+            round_statement=round_statement,
             active=True,
             created_at=_now(),
         )
 
-        # try match against best asks
-        group = player.group
-        while True:
-            asks = Ask.active_qs().filter(
-                player__group=group,
+        # ---- match loop
+        while bid.active and bid.quantity > 0:
+
+            asks = Ask.filter(
+                active=True,
+                group=group,
                 BTC_Statement=BTC_Statement,
                 round_statement=round_statement,
-                price__lte=bid.price,
-            ).order_by("-price", "created_at")
-            if not asks.exists() or not bid.active or bid.quantity <= 0:
+            )
+            
+            
+
+            # keep only asks at/under bid price
+            asks = [a for a in asks if float(a.price) <= float(bid.price)]
+            if not asks:
                 break
+                
+            
 
-            ask = asks.last()
+            # pick best ask: lowest price, then earliest created_at
+            asks.sort(key=lambda a: (float(a.price), float(a.created_at)))
+            ask = asks[0]
 
-            # funds re-check (for safety)
+            # ---- funds re-check (safety)
+            # (for 1 unit at a time; Contract.create likely decrements balances)
             if bid.BTC_Statement is False:
                 if bid.player.allocation_dollar < float(bid.price):
                     raise NotEnoughFunds(bid.player, bid.BTC_Statement, bid.player.allocation_dollar)
@@ -1014,14 +1071,26 @@ class Bid(ExtraModel):
                 if bid.player.allocation_btc < float(bid.price):
                     raise NotEnoughFunds(bid.player, bid.BTC_Statement, bid.player.allocation_btc)
 
+            # ---- seller provides item
             item = ask.player.item_to_sell(BTC_Statement)
-            if item:
-                Contract.create(item=item, bid=bid, ask=ask, price=min(float(bid.price), float(ask.price)))
+            if not item:
+                # seller ran out unexpectedly; stop
+                break
 
-            # refresh quantities
-            bid = cls.objects.get(id=bid.id)
 
+            
+            Contract.execute_trade(
+                group=group,             # keep consistent with your Ask-side
+                item=item,
+                bid=bid,
+                ask=ask,
+                price=min(float(bid.price), float(ask.price)),
+            )
+        
+        
+        
         return bid
+
 
 
 class Slot(ExtraModel):
@@ -1043,7 +1112,7 @@ class Item(ExtraModel):
 class Contract(ExtraModel):
     created_at = djmodels.DateTimeField(auto_now_add=True)
     updated_at = djmodels.DateTimeField(auto_now=True)
-    
+
     group = models.Link(Group)
     round_contract = models.IntegerField()
     item = models.Link(Item)
@@ -1060,28 +1129,35 @@ class Contract(ExtraModel):
         return self.bid.player
 
     @classmethod
-    def create(cls, item, bid, ask, price):
-        channel_layer = get_channel_layer()
+    def execute_trade(cls, group, item, bid, ask, price):
 
         buyer = bid.player
         seller = ask.player
-        cost = item.slot.cost
 
+        # move item to buyer slot
+        cost = item.slot.cost or 0
         new_slot = buyer.get_free_slot(bid.BTC_Statement)
-        item.slot = new_slot
-        value = new_slot.value
+        
+        if new_slot is None:
+            raise Exception("Buyer has no free slot")       
+        
+        item.slot=new_slot
+        value = new_slot.value or 0
 
-        contract = cls(
-            round_contract=bid.round_statement,
+        # persist contract (ExtraModel)
+        contract = cls.create(
+            group=group,
+            round_contract=int(bid.round_statement),
             item=item,
             bid=bid,
             ask=ask,
-            price=price,
-            cost=cost,
-            value=value,
+            price=float(price),
+            cost=float(cost),
+            value=float(value),
         )
-        item.save()
+        
 
+        # money transfer (per unit trade)
         if bid.BTC_Statement is False:
             buyer.allocation_dollar -= float(contract.price)
             seller.allocation_dollar += float(contract.price)
@@ -1093,94 +1169,63 @@ class Contract(ExtraModel):
             buyer.thisround_btc -= float(contract.price)
             seller.thisround_btc += float(contract.price)
 
-        buyer.save()
-        seller.save()
 
-        Ask.objects.filter(active=True, id=ask.id).update(quantity=F("quantity") - 1)
-        Bid.objects.filter(active=True, id=bid.id).update(quantity=F("quantity") - 1)
+        # decrement & persist ask quantity/active
+        new_ask_q = max(int(ask.quantity) - 1, 0)
+        ask.quantity=new_ask_q
+        ask.active=(new_ask_q > 0)
 
-        # IMPORTANT: ask.quantity / bid.quantity on python objects won’t reflect the F() update.
-        # We'll use the old behavior (deactivate when <=1) based on the in-memory value,
-        # which matches your original logic closely:
-        if int(ask.quantity) <= 1:
-            Ask.objects.filter(active=True, id=ask.id).update(active=False)
-        if int(bid.quantity) <= 1:
-            Bid.objects.filter(active=True, id=bid.id).update(active=False)
+        new_bid_q = max(int(bid.quantity) - 1, 0)
+        bid.quantity=new_bid_q
+        bid.active=(new_bid_q > 0)
 
-        contract.save()
 
-        # Update both parties and push UI updates
+        # build updates for oTree-live (NOT channels)
+        player_updates = {}
         for p in [buyer, seller]:
-            p.set_this_round_payoff()
-            p.set_units(True)
-            p.set_units(False)
+            warnings = []
 
-            exante_active_dollar = p.active_dollar
+            # compute ex-ante/ex-post market activity
+            exante_active_dollar = getattr(p, "active_dollar", False)
             p.active_dollar = p.is_active(False)
             expost_active_dollar = p.active_dollar
             if exante_active_dollar and (not expost_active_dollar):
                 house_name = "A"
                 things = "package" if p.role() == "seller" else "currency"
-                async_to_sync(channel_layer.send)(
-                    p.get_personal_channel_name(),
-                    {"type": "chat.message", "text": json.dumps({"warning": f"You have no {things} remaining in Market {house_name}. Market {house_name} is closed."})},
+                warnings.append(
+                    f"You have no {things} remaining in Market {house_name}. Market {house_name} is closed."
                 )
 
-            exante_active_btc = p.active_btc
+            exante_active_btc = getattr(p, "active_btc", False)
             p.active_btc = p.is_active(True)
             expost_active_btc = p.active_btc
             if exante_active_btc and (not expost_active_btc):
                 house_name = "B"
                 things = "package" if p.role() == "seller" else "currency"
-                async_to_sync(channel_layer.send)(
-                    p.get_personal_channel_name(),
-                    {"type": "chat.message", "text": json.dumps({"warning": f"You have no {things} remaining in Market {house_name}. Market {house_name} is closed."})},
+                warnings.append(
+                    f"You have no {things} remaining in Market {house_name}. Market {house_name} is closed."
                 )
 
-            p.save()
+            p.set_this_round_payoff()
+            p.set_units(True)
+            p.set_units(False)
+            
 
-            async_to_sync(channel_layer.send)(
-                p.get_personal_channel_name(),
-                {
-                    "type": "chat.message",
-                    "text": json.dumps(
-                        {
-                            "repo": p.get_repo_html(False),
-                            "repo_btc": p.get_repo_html(True),
-                            "contracts": p.get_contracts_html(False),
-                            "contracts_btc": p.get_contracts_html(True),
-                            "form": p.get_form_html(False),
-                            "form_btc": p.get_form_html(True),
-                            "profit": p.profit_block_html(False),
-                            "profit_btc": p.profit_block_html(True),
-                            "general_info": p.general_info_block_html(),
-                            "presence": p.presence_check(),
-                        }
-                    ),
-                },
-            )
+            # player_updates[p.id_in_group] = {
+                # "warning": warnings[-1] if warnings else None,
+                # "repo": p.get_repo_html(False),
+                # "repo_btc": p.get_repo_html(True),
+                # "contracts": p.get_contracts_html(False),
+                # "contracts_btc": p.get_contracts_html(True),
+                # "form": p.get_form_html(False),
+                # "form_btc": p.get_form_html(True),
+                # "profit": p.profit_block_html(False),
+                # "profit_btc": p.profit_block_html(True),
+                # "general_info": p.general_info_block_html(),
+                # "presence": p.presence_check(),
+            # }
 
-        # Group-level warnings
-        async_to_sync(channel_layer.group_send)(
-            buyer.group.get_channel_group_name(),
-            {"type": "chat.message", "text": json.dumps({"presence": buyer.group.presence_check()})},
-        )
-
-        for p in buyer.group.get_players():
-            async_to_sync(channel_layer.send)(
-                p.get_personal_channel_name(),
-                {
-                    "type": "chat.message",
-                    "text": json.dumps(
-                        {
-                            "asks": p.get_asks_html(False),
-                            "bids": p.get_bids_html(False),
-                            "asks_btc": p.get_asks_html(True),
-                            "bids_btc": p.get_bids_html(True),
-                        }
-                    ),
-                },
-            )
+        # group_update = {"presence": group.presence_check()}
 
         return contract
 
@@ -1210,9 +1255,10 @@ class Contract(ExtraModel):
 
 
 
+
 class IntroWp(WaitPage):
     group_by_arrival_time = True
-
+    
     def after_all_players_arrive(self):
         g = self.group
         sub = self.subsession
@@ -1222,25 +1268,75 @@ class IntroWp(WaitPage):
         g.set_sequence()
         g.fake_draw()
 
+        # 1) payoff bookkeeping
         for p in g.get_players():
             p.inherit_sequence_payoff()
             p.clear_sequence_payoff()
 
+        # 2) carry over within-sequence balances
         if self.round_number != 1:
             for p in g.get_players():
                 p.allocation_dollar = p.in_round(self.round_number - 1).allocation_dollar
                 p.allocation_btc = p.in_round(self.round_number - 1).allocation_btc
 
+        # 3) reset at start of each sequence
         if self.round_number in g.first_round_in_sequence():
             for p in g.get_players():
-                p.allocation_dollar = 0.0
+                if p.role() == "buyer":
+                    p.allocation_dollar = C.BUYER_DOLLAR_ENDOWMENT
+                    p.allocation_btc = C.BUYER_BTC_ENDOWMENT
+                else:
+                    p.allocation_dollar = 0.0
+                    p.allocation_btc = 0.0
                 p.allocation_dollar_save = 0.0
-                p.allocation_btc = 0.0
                 p.allocation_btc_save = 0.0
+
+        # 4) inflation (only when not sequence-start)
         else:
             if sub.inflation_on == 1:
                 for p in g.get_players():
                     p.allocation_dollar = round(p.allocation_dollar * (1 + sub.inflation_rate), 2)
+
+    
+    
+    
+    
+
+    # def after_all_players_arrive(self):
+        # g = self.group
+        # sub = self.subsession
+
+        # g.set_role()
+        # g.set_total_round()
+        # g.set_sequence()
+        # g.fake_draw()
+
+        # for p in g.get_players():
+            # p.inherit_sequence_payoff()
+            # p.clear_sequence_payoff()
+
+            # if self.round_number != 1:
+                # for p in g.get_players():
+                    # p.allocation_dollar = p.in_round(self.round_number - 1).allocation_dollar
+                    # p.allocation_btc = p.in_round(self.round_number - 1).allocation_btc
+
+            # if self.round_number in g.first_round_in_sequence():
+                # if p.role() == "buyer":
+                            # p.allocation_dollar = C.BUYER_DOLLAR_ENDOWMENT
+                            # p.allocation_btc = C.BUYER_BTC_ENDOWMENT
+                            # p.allocation_dollar_save = 0.0
+                            # p.allocation_btc_save = 0.0
+                # else:
+                    # # sellers typically start with 0 currency (they start with items/units instead)
+                    # p.allocation_dollar = 0.0
+                    # p.allocation_btc = 0.0
+                    # p.allocation_dollar_save = 0.0
+                    # p.allocation_btc_save = 0.0
+
+            # else:
+                # if sub.inflation_on == 1:
+                    # for p in g.get_players():
+                        # p.allocation_dollar = round(p.allocation_dollar * (1 + sub.inflation_rate), 2)
 
 
 
@@ -1265,11 +1361,9 @@ class WorkPage(Page):
         return int(cfg.get("time_per_round_currency", 0) or 0)
 
     @staticmethod
-    def is_displayed(player: Player):
-        # If this page should be shown to everyone, return True.
-        # Your original code effectively only showed it to sellers.
-        # NOTE: if you actually want BOTH roles to see this page, change to `return True`.
-        return player.role() == "seller"
+    def is_displayed(player: Player): 
+        return player.role() == "seller" 
+        # try to fixing 'skip' by returning true for all players
 
     @staticmethod
     def get_form_fields(player: Player):
@@ -1414,7 +1508,246 @@ class GeneratingInitialsWP(WaitPage):
             b.set_units(False)
 
 
+# -------------------------------
+# HELPERS FOR SENDING DATA TO UI
+# -----------------------------
+
+def _serialize_stmt_for(p, s):
+    return {
+        "id": s.id,
+        "price": float(s.price) if s.price is not None else None,
+        "quantity": int(s.quantity) if s.quantity is not None else None,
+        "is_me": (s.player_id == p.id),
+    }
+
+
+
+def _stmt_to_dict(stmt):
+    if not stmt:
+        return None
+    return {
+        "price": float(stmt.price),
+        "quantity": float(stmt.quantity),
+        "round_statement": int(getattr(stmt, "round_statement", 0)),
+        "BTC_Statement": bool(getattr(stmt, "BTC_Statement", False)),
+    }
+    
+    
+def _profit_to_dict(p):
+    """
+    Return only primitive JSON-safe values for the profit block.
+    """
+    if p.role() == "buyer":
+        result =  {
+            "allocation_dollar": p.allocation_dollar,
+            "allocation_btc": p.allocation_btc,
+            "units_dollar": p.units_dollar,
+            "units_btc": p.units_btc,
+            "thisround_profit": p.thisround_profit,
+            "thisround_euro": p.thisround_euro
+        }
+
+    else:
+        result = { 
+            "allocation_dollar": p.allocation_dollar,
+            "allocation_btc": p.allocation_btc,
+            "units_dollar": p.units_dollar,
+            "units_btc": p.units_btc
+        } 
+
+
+    return result
+        
+def _contracts_to_dict(p, house):
+    """
+    Return only primitive JSON-safe values for the contracts section of the info block.
+    """
+    
+    contracts = p.get_contracts(house) or []
+
+    # newest first
+    contracts.sort(
+        key=lambda c: (getattr(c, "created_at", 0) or getattr(c, "id", 0)),
+        reverse=True
+    )
+
+    result = []
+
+    for c in contracts:
+        if p.role() == "buyer":
+            result.append({
+                "item_quantity": c.item.quantity,
+                "value": c.value,
+                "price": c.price
+            })
+            
+        else:
+            result.append({
+                "item_quantity": c.item.quantity,
+                "price": c.price
+            })
+            
+ 
+    return result
+     
+    
+    
+def live_market(player: Player, data):
+    g = player.group
+    data = data or {}
+    action = data.get("action")
+    house = bool(data.get("BTC_Statement", False))  # False=dollar, True=btc
+    
+    # -----------------------
+    # 1) Apply action
+    # -----------------------
+    if action == "new_statement":
+        try:
+            price = float(data.get("price"))
+            quantity = int(data.get("quantity"))
+        except (TypeError, ValueError):
+            return {player.id_in_group: {"error": "Invalid price/quantity"}}
+
+        if price <= 0 or quantity <= 0:
+            return {player.id_in_group: {"error": "Price and quantity must be > 0"}}
+
+        # IMPORTANT: use your matching entrypoints
+        try:
+            if player.role() == "buyer":
+                Bid.create_and_match(
+                    player=player,
+                    BTC_Statement=house,
+                    price=price,
+                    quantity=quantity,
+                    round_statement=player.round_number,
+                )
+            else:
+                Ask.create_and_match(
+                    player=player,
+                    BTC_Statement=house,
+                    price=price,
+                    quantity=quantity,
+                    round_statement=player.round_number,
+                )
+        except Exception as e:
+            return {player.id_in_group: {"error": str(e)}}
+
+    elif action == "retract_statement":
+        stmts = (
+            Bid.filter(player=player, active=True, BTC_Statement=house)
+            if player.role() == "buyer"
+            else Ask.filter(player=player, active=True, BTC_Statement=house)
+        )
+        if stmts:
+            stmts.sort(key=lambda s: (getattr(s, "created_at", 0) or 0), reverse=True)
+            last_stmt = stmts[0]
+            last_stmt.active = False
+
+    elif action == "best_statement":
+
+        try:
+            if player.role() == "buyer":
+                # Buyer accepts the BEST ASK (lowest ask) in this house
+                best = g.best_ask(house)
+                if not best:
+                    return {player.id_in_group: {"error": "No asks available to accept."}}
+
+                Bid.create_and_match(
+                    player=player,
+                    BTC_Statement=house,
+                    price=float(best.price),      
+                    quantity=1,                  
+                    round_statement=player.round_number,
+                )
+
+            else:
+                # Seller accepts the BEST BID (highest bid) in this house
+                best = g.best_bid(house)
+                if not best:
+                    return {player.id_in_group: {"error": "No bids available to accept."}}
+
+                Ask.create_and_match(
+                    player=player,
+                    BTC_Statement=house,
+                    price=float(best.price),      
+                    quantity=1,                  
+                    round_statement=player.round_number,
+                )
+
+        except Exception as e:
+            return {player.id_in_group: {"error": str(e)}}
+
+    elif action == "refresh":
+        pass
+
+    else:
+        return  # ignore unknown action
+
+    # -----------------------
+    # 2) Build per-player payloads
+    # -----------------------
+    asks_d = g.get_asks(False)
+    bids_d = g.get_bids(False)
+    asks_b = g.get_asks(True)
+    bids_b = g.get_bids(True)
+
+
+    # -----------------------
+    # 3) Build rich per-player payloads
+    # -----------------------
+    out = {}
+    for p in g.get_players():
+        # recompute and (optionally) persist activity flags
+        p.active_dollar = p.is_active(False)
+        p.active_btc = p.is_active(True)
+
+       
+        # update payoff/units so the blocks reflect current state
+        p.set_this_round_payoff()
+        p.set_units(False)
+        p.set_units(True)
+
+        # form_state booleans (you already have this helper)
+        ctx_d = p.get_form_context(False)
+        
+
+        out[p.id_in_group] = {
+            # existing stuff:
+            "group_presence": g.presence_check(),
+            "orderbook": {
+                "dollar": {
+                    "asks": [_serialize_stmt_for(p, a) for a in asks_d],
+                    "bids": [_serialize_stmt_for(p, b) for b in bids_d],
+                },
+                "btc": {
+                    "asks": [_serialize_stmt_for(p, a) for a in asks_b],
+                    "bids": [_serialize_stmt_for(p, b) for b in bids_b],
+                },
+            },
+            "form_state": {
+                "no_slots_or_funds_dollar": bool(ctx_d.get("no_slots_or_funds_dollar")),
+                "no_slots_or_funds_btc": bool(ctx_d.get("no_slots_or_funds_btc")),
+            },
+            
+            "last_statement": _stmt_to_dict(p.get_last_statement()),
+            "last_statement_btc": _stmt_to_dict(p.get_last_statement_btc()),
+            "profit": _profit_to_dict(p),
+            "contracts": _contracts_to_dict(p, False),
+            "contracts_btc": _contracts_to_dict(p, True),
+            "currency_symbol": p.Currency_symbol()
+        }
+       
+            
+    return out
+
+
+
+
+
+
 class Market(Page):
+    
+    live_method = live_market
 
     @staticmethod
     def get_timeout_seconds(player: Player):
@@ -1471,28 +1804,36 @@ class Market(Page):
     def before_next_page(player: Player, timeout_happened):
         player.thisround_btc = 0
         player.thisround_dollar = 0
+        
+
+
 
 
 
 class ResultsWaitPage4(WaitPage):
     body_text = "Waiting for the other participant to decide."
 
-    def after_all_players_arrive(self):
-        self.group.clear_ask_bid()
-        for p in self.group.get_players():
+    @staticmethod
+    def after_all_players_arrive(group: Group):
+        group.clear_ask_bid()
+        for p in group.get_players():
             p.set_sequence_payoff()
             p.set_payoff()
+
 
 
 class SequencePage(Page):
     timer_text = "Time left to complete the task:"
 
-    def get_timeout_seconds(self):
-        return self.subsession.drop_player_time
+    @staticmethod
+    def get_timeout_seconds(player: Player):
+        return player.subsession.drop_player_time
 
-    def before_next_page(self):
-        if self.timeout_happened:
-            self.player.no_action1 = True
+    @staticmethod
+    def before_next_page(player: Player, timeout_happened):
+        if timeout_happened:
+            player.no_action1 = True
+
 
 
 class Dropout(Page):
@@ -1500,15 +1841,18 @@ class Dropout(Page):
     form_model = "player"
     form_fields = []
 
-    def get_timeout_seconds(self):
-        return self.subsession.drop_player_time
+    @staticmethod
+    def get_timeout_seconds(player: Player):
+        return player.subsession.drop_player_time
 
-    def is_displayed(self):
-        return self.player.no_action1 is True and self.subsession.drop_player_on == 1
+    @staticmethod
+    def is_displayed(player: Player):
+        return player.no_action1 is True and player.subsession.drop_player_on == 1
 
-    def before_next_page(self):
-        if self.timeout_happened:
-            self.player.drop_one()
+    @staticmethod
+    def before_next_page(player: Player, timeout_happened):
+        if timeout_happened:
+            player.drop_one()
 
 
 class ResultsWaitPage5(WaitPage):
@@ -1518,30 +1862,47 @@ class ResultsWaitPage5(WaitPage):
 class Termination(Page):
     timer_text = "Time left to complete the task:"
 
-    def is_displayed(self):
-        if self.player.disconnection_flag != 0:
-            self.player.set_payment_message()
+    @staticmethod
+    def is_displayed(player: Player):
+        if player.disconnection_flag != 0:
+            player.set_payment_message()
             return True
         return False
 
-    def app_after_this_page(self, upcoming_apps):
-        if self.player.disconnection_flag != 0:
+    @staticmethod
+    def app_after_this_page(player: Player, upcoming_apps):
+        if player.disconnection_flag != 0:
             return upcoming_apps[0]
+
 
 
 class PaymentPage(Page):
     timer_text = "Time left to complete the task:"
 
-    def is_displayed(self):
-        if self.round_number == self.group.total_round:
-            self.player.set_payment_message()
+    @staticmethod
+    def is_displayed(player: Player):
+        if player.round_number == player.group.total_round:
+            player.set_payment_message()
             return True
         return False
 
-    def app_after_this_page(self, upcoming_apps):
-        if self.round_number == self.group.total_round:
+    @staticmethod
+    def app_after_this_page(player: Player, upcoming_apps):
+        if player.round_number == player.group.total_round:
             return upcoming_apps[0]
 
+
+
+
+
+
+
+
+def creating_session(subsession: Subsession):
+    subsession.set_config()
+    if subsession.session.num_participants % (subsession.num_buyers + subsession.num_sellers) != 0:
+        raise Exception("Number of participants is not divisible by number of sellers and buyers")
+        
 
 page_sequence = [
     IntroWp,

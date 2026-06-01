@@ -1,24 +1,27 @@
-
 <tr>
-    <td><strong>Currency A holdings:</strong></td>
-    <td>{{ player.allocation_dollar }}</td>
-</tr>
-<tr>
-    <td><strong> {% if player.role == 'buyer' %} # of packages purchased: {% else %} # of packages left for sale {% endif %} </strong></td>
-
-    <td>{{ player.units_dollar }}</td>
+  <td><strong>Currency A holdings:</strong></td>
+  <td id="allocation_dollar">{{ player.allocation_dollar }}</td>
 </tr>
 
-{% if player.role == 'seller' %}
-
-{% else %}
 <tr>
-    <td>Chips made in this round:</td>
-    <td>{{ player.thisround_profit }}</td>
+  <td><strong>
+    {% if player.role_str == 'buyer' %}
+      # of packages purchased:
+    {% else %}
+      # of packages left for sale
+    {% endif %}
+  </strong></td>
+  <td id="units_dollar">{{ player.units_dollar }}</td>
+</tr>
+
+{% if player.role_str != 'seller' %}
+<tr>
+  <td>Chips made in this round:</td>
+  <td id="thisround_profit">{{ player.thisround_profit }}</td>
 </tr>
 <tr>
-    <td>{{player.Currency_name}} made in this round:</td>
-    <td>{{player.Currency_symbol}}{{ player.thisround_euro }}</td>
+  <td>{{ player.Currency_name }} made in this round:</td>
+  <td><span id="currency_symbol"> </span><span id="thisround_euro">{{ player.thisround_euro }}</span></td>
 </tr>
 {% endif %}
 

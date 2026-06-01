@@ -1,0 +1,289 @@
+<script>
+console.log('market_live.js executed');
+// Global helpers
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+  // for rendering last statments
+    
+  function setText(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = (value === null || value === undefined) ? '' : String(value);
+  }
+  
+  function setTbody(selector, html) {
+    const el = document.querySelector(selector);
+    if (el) el.innerHTML = html;
+  }
+
+function setInnerHtmlById(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+
+
+
+  // ---------------------------
+  // Send actions to server
+  // ---------------------------
+  function sendNewStatement(houseIsBTC) {
+    const priceEl = document.getElementById(houseIsBTC ? 'price_btc' : 'price');
+    const qtyEl   = document.getElementById(houseIsBTC ? 'quantity_id_btc' : 'quantity_id');
+
+    const price = Number(priceEl?.value);
+    const quantity = Number(qtyEl?.value);
+
+	console.log('SENT new_statement', { houseIsBTC, price, quantity });
+
+    liveSend({
+      action: 'new_statement',
+      price,
+      quantity,
+      BTC_Statement: houseIsBTC
+    });
+	
+	
+  }
+
+  function retractStatement(houseIsBTC) {
+    liveSend({ action: 'retract_statement', BTC_Statement: houseIsBTC });
+  }
+
+  function requestRefresh() {
+    liveSend({ action: 'refresh' });
+  }
+
+  // ---------------------------
+  // Render Functions
+  // ---------------------------
+
+  function renderLastStatement(last, prefix) {
+    // prefix is '' for dollar, '_btc' for btc (matching your IDs)
+	
+	if (!last) {
+		setText('last_statement_price' + prefix, '');
+		setText('last_statement_quantity' + prefix, '');
+		return;
+	}
+	
+    setText('last_statement_price' + prefix, last.price ?? '');
+    setText('last_statement_quantity' + prefix, last.quantity ?? '');
+	
+	
+  }
+
+  function renderOrderRows(rows) {
+    rows = rows || [];
+    return rows.map(r => {
+      const mine = !!(r.is_mine ?? r.isMine ?? r.is_me);
+      const trClass = mine ? 'text-light bg-success' : '';
+      return `
+        <tr class="${trClass}">
+          <td style="width:30%" class="filterable-cell">${escapeHtml(r.price)}</td>
+          <td style="width:40%" class="filterable-cell">${escapeHtml(r.quantity)}</td>
+          <td style="width:30%">${mine ? '(You!)' : '&nbsp;'}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+
+  
+function renderSpreadRows(bestAsk, bestBid) {
+  const askPrice = (bestAsk && bestAsk.price != null) ? Number(bestAsk.price) : null;
+  const bidPrice = (bestBid && bestBid.price != null) ? Number(bestBid.price) : null;
+
+  const askQty = bestAsk?.quantity ?? '';
+  const bidQty = bestBid?.quantity ?? '';
+
+  return `
+    <tr>
+      <td>Best Ask</td>
+      <td>${escapeHtml(askPrice ?? '')}</td>
+      <td>${escapeHtml(askQty)}</td>
+    </tr>
+    <tr>
+      <td>Best Bid</td>
+      <td>${escapeHtml(bidPrice ?? '')}</td>
+      <td>${escapeHtml(bidQty)}</td>
+    </tr>
+  `;
+}
+
+function renderProfit(profit, currencySymbol) {
+  if (!profit) return;
+
+  setText('allocation_dollar', profit.allocation_dollar ?? '');
+  setText('allocation_btc', profit.allocation_btc ?? '');
+  setText('units_dollar', profit.units_dollar ?? '');
+  setText('units_btc', profit.units_btc ?? '');
+  setText('thisround_profit', profit.thisround_profit ?? '');
+  setText('thisround_euro', profit.thisround_euro ?? '');
+  setText('thisround_profit_btc', profit.thisround_profit ?? '');		// _btc causes no id duplicate, however, should be same value.
+  setText('thisround_euro_btc', profit.thisround_euro ?? '');
+  setText('currency_symbol', currencySymbol ?? '')
+  setText('currency_symbol_btc', currencySymbol ?? '')
+
+}
+
+function renderGenInfo(genInfo) {
+	if (!genInfo) return;
+	
+	setText('geninfo_allocation_dollar', genInfo.allocation_dollar ?? '');
+	setText('geninfo_allocation_btc', genInfo.allocation_btc ?? '');
+	
+}
+
+
+function renderContracts(contracts) {
+  try {
+    const tb = document.getElementById('contracts_rows');
+    if (!tb) return;
+
+	if (!Array.isArray(contracts) || contracts.length === 0) return;
+    
+	
+	const rows = contracts.map(c => {
+      if (!c) return '';
+
+      const qty   = c.item_quantity ?? '';
+      const price = c.price ?? '';
+      const chips = c.value ?? ''; 
+
+      return `
+        <tr>
+          <td style="width:30%" class="filterable-cell">${escapeHtml(qty)}</td>
+          <td style="width:40%" class="filterable-cell">${escapeHtml(chips)}</td>
+          <td style="width:30%" class="filterable-cell">${escapeHtml(price)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    tb.innerHTML = rows;
+  } catch (e) {
+    console.error('renderContracts failed:', e, contracts);
+  }
+}
+
+function renderContractsBTC(contracts) {
+  try {
+    const tb = document.getElementById('contracts_rows_btc');
+    if (!tb) return;
+
+	if (!Array.isArray(contracts) || contracts.length === 0) return;
+    
+	
+	const rows = contracts.map(c => {
+      if (!c) return '';
+
+      const qty   = c.item_quantity ?? '';
+      const price = c.price ?? '';
+      const chips = c.value ?? ''; 
+
+      return `
+        <tr>
+          <td style="width:30%" class="filterable-cell">${escapeHtml(qty)}</td>
+          <td style="width:40%" class="filterable-cell">${escapeHtml(chips)}</td>
+          <td style="width:30%" class="filterable-cell">${escapeHtml(price)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    tb.innerHTML = rows;
+  } catch (e) {
+    console.error('renderContracts failed:', e, contracts);
+  }
+}
+
+
+
+  // ---------------------------
+  // liveRecv: JSON -> DOM updates
+  // ---------------------------
+  
+  function liveRecv(data) {
+    if (!data) return;
+
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
+
+    const ob = data.orderbook || {};
+	
+	console.log('liveRecv last:', data.last_statement, data.last_statement_btc);
+
+    // Market A (dollar)
+    if (ob.dollar) {
+      if (ob.dollar.asks) setTbody('tbody.asks_container', renderOrderRows(ob.dollar.asks));
+      if (ob.dollar.bids) setTbody('tbody.bids_container', renderOrderRows(ob.dollar.bids));
+	  const bestAsk = (ob.dollar.asks && ob.dollar.asks.length) ? ob.dollar.asks[0] : null;
+      const bestBid = (ob.dollar.bids && ob.dollar.bids.length) ? ob.dollar.bids[0] : null;
+	  setInnerHtmlById('spread_container', renderSpreadRows(bestAsk, bestBid))
+    }
+
+    // Market B (btc)
+    if (ob.btc) {
+      if (ob.btc.asks) setTbody('tbody.asks_container_btc', renderOrderRows(ob.btc.asks));
+      if (ob.btc.bids) setTbody('tbody.bids_container_btc', renderOrderRows(ob.btc.bids));
+	  const bestAsk = (ob.btc.asks && ob.btc.asks.length) ? ob.btc.asks[0] : null;
+	  const bestBid = (ob.btc.bids && ob.btc.bids.length) ? ob.btc.bids[0] : null;
+	  setInnerHtmlById('spread_container_btc', renderSpreadRows(bestAsk, bestBid));
+    }
+	
+	
+	// render necessary information
+	if ('profit' in data && 'currency_symbol' in data) renderProfit(data.profit, data.currency_symbol)
+	if ('profit' in data) renderGenInfo(data.profit, '') 																// Note that profits contains the info needed for genInfo
+	if ('last_statement' in data) renderLastStatement(data.last_statement, '');
+	if ('last_statement_btc' in data) renderLastStatement(data.last_statement_btc, '_btc');
+	if ('contracts' in data) renderContracts(data.contracts);
+	if ('contracts_btc' in data) renderContractsBTC(data.contracts_btc);
+
+	// submit the page to advance to the next page in page_sequence
+	if (data.group_presence && data.group_presence.market_over) {
+		  console.log('[DEBUG] group_presence:', data.group_presence);
+		const form = document.querySelector('form');
+		if (form) form.submit();
+	}
+
+	// warning
+	if (data.warning) {
+	  alert(data.warning); // replace with modal logic if you have one
+	}
+
+  }
+
+  // ---------------------------
+  // Wire up events
+  // ---------------------------
+  document.addEventListener('DOMContentLoaded', function () {
+    // initial refresh so tables populate
+    requestRefresh();
+	setInterval(requestRefresh, 1000)
+  });
+
+  // Event delegation for your existing buttons (works even when table rows update)
+  document.addEventListener('click', function (e) {
+    const t = e.target;
+    if (!t) return;
+
+    // Market A buttons
+    if (t.id === 'submit_statement') { e.preventDefault(); sendNewStatement(false); }
+    if (t.id === 'retract_statement') { e.preventDefault(); retractStatement(false); }
+    if (t.id === 'best_statement') { e.preventDefault(); liveSend({ action:'best_statement', BTC_Statement:false }); }
+
+    // Market B buttons
+    if (t.id === 'submit_statement_btc') { e.preventDefault(); sendNewStatement(true); }
+    if (t.id === 'retract_statement_btc') { e.preventDefault(); retractStatement(true); }
+    if (t.id === 'best_statement_btc') { e.preventDefault(); liveSend({ action:'best_statement', BTC_Statement:true }); }
+  });
+</script>
+

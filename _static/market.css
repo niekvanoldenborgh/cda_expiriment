@@ -74,8 +74,13 @@
 
 }
 
-.otree-timer {
+/* .otree-timer {
     display: none !important;
+} */
+
+.otree-timer__time-left {
+    color: red;
+    font-weight: 600;
 }
 
 
@@ -139,4 +144,13 @@
 .tablecol-2 > tbody > tr > td,
 .tablecol-2 > thead > tr > th {
     width: 50%;
+}
+
+
+/* On smaller screens, stack nicely */
+@media (max-width: 1200px){
+  .market-col{ flex: 0 0 calc(50% - 12px); } /* 2 columns */
+}
+@media (max-width: 700px){
+  .market-col{ flex: 0 0 100%; }             /* 1 column */
 }

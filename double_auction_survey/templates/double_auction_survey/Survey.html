@@ -1,0 +1,60 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}
+Please fill out this questionnaire!
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const q9 = document.getElementById("id_Q9");
+        const q10 = document.getElementById("id_Q10");
+        if (q9) q9.style.height = "130px";
+        if (q10) q10.style.height = "130px";
+		
+	  const blockPaste = (el) => {
+		if (!el) return;
+			el.addEventListener('paste', (e) => e.preventDefault());
+			el.addEventListener('drop',  (e) => e.preventDefault());
+			el.setAttribute('autocomplete', 'off');
+	  };
+
+	  blockPaste(document.getElementById('id_Q8_1'));
+	  blockPaste(document.getElementById('id_Q11_1')); 
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+
+    {% formfield player.Q1 %}
+    {% formfield player.Q2 %}
+    {% formfield player.Q2_1 %}
+
+    {% formfield player.Q3 %}
+    {% formfield player.Q4 %}
+    {% formfield player.Q4_1 %}
+
+    {% formfield player.Q5 %}
+    {% formfield player.Q6 %}
+    {% formfield player.Q7 %}
+
+    <p>Please leave us your {{ player.Currency_contact_info }} for payment:</p>
+    {% formfield player.Q8 %}
+
+    <p>Please type your {{ player.Currency_contact_info }} again:</p>
+    {% formfield player.Q8_1 %}
+
+    {% formfield player.Q9 %}
+    {% formfield player.Q10 %}
+
+    {% if player.Currency_name == 'Euro' %}
+        {% formfield player.Q11 %}
+        {% formfield player.Q11_1 %}
+    {% endif %}
+
+    {% next_button %}
+
+{% endblock %}
+

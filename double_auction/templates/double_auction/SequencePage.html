@@ -16,9 +16,9 @@
 <div class="">
 {% if group.sequence_number == 0 %}
     {% if player.round_number in group.final_round_in_sequence %}
-        You made a total of {{ player.Currency_symbol}}{{player.thissequence_euro}} during the training sequence. <strong>The training sequence has ended. You will be starting the paid experiment.</strong>
+        You made a total of {{player.thissequence_euro}} during the training sequence. <strong>The training sequence has ended. You will be starting the paid experiment.</strong>
     {% else %}
-        You made a total of <b>{{ player.Currency_symbol}}{{ player.thissequence_euro }}</b> from previous periods in the training sequence.
+        You made a total of <b>{{ player.thissequence_euro }}</b> from previous periods in the training sequence.
 
     {% endif %}
 {% else %}
@@ -27,11 +27,11 @@
 
 
     {% if group.is_last_sequence == 1 %}
-    You made a total of {{ player.Currency_symbol}}{{player.thissequence_euro}} during sequence {{ group.sequence_number }}.
+    You made a total of {{player.thissequence_euro}} during sequence {{ group.sequence_number }}.
     There is no more time for an additional sequence. The experiment ends here.
 
     {% elif player.round_number in group.final_round_in_sequence %}
-    This sequence has ended. You made a total of {{ player.Currency_symbol}}{{player.thissequence_euro}} during sequence {{ group.sequence_number }}.
+    This sequence has ended. You made a total of {{player.thissequence_euro}} during sequence {{ group.sequence_number }}.
     You will be starting a new sequence. Your currency and chip holdings will be reset.
 
     {% else %}
@@ -51,7 +51,7 @@
 
 {% block scripts %}
     {#  Here we include javascript block where we connect via websockets to oTree server  #}
-    {% include './includes/channel-js.html' %}
+    {% include 'double_auction/includes/channel-js.html' %}
 {% endblock %}
 
 

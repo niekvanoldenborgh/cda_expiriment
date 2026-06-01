@@ -21,7 +21,7 @@
                 </tbody>
             </table>
 
-            <div class="form_container">
+            <div class="form_container" id="form_container">
                 {% include 'double_auction/includes/form_to_render.html' %}
             </div>
 
@@ -33,7 +33,7 @@
                         <th>Quantity</th>
                     </tr>
                 </thead>
-                <tbody class="spread_container">
+                <tbody class="spread_container" id="spread_container">
                     {% include 'double_auction/includes/spread_to_render.html' %}
                 </tbody>
             </table>

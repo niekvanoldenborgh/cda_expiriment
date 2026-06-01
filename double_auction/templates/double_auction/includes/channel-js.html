@@ -1,42 +1,42 @@
 <script>
-    $(function () {
-        {# The following lines define the path to the oTree server  #}
-        var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
-        {# The ws_path corresponds to url_pattern that is defined in our consumers.py file #}
-        {# We need the player.id to find the corresponding player in the database #}
-        var ws_path = ws_scheme + '://' + window.location.host + "/tasktracker_stage1/{{ player.id }}";
-        var socket = new ReconnectingWebSocket(ws_path);
+document.addEventListener('DOMContentLoaded', function () {
+  // SELLER: auto-update BTC allocation based on dollar allocation
+  const sellerEndowment = document.getElementById('seller_endowment');
+  const sellerDollarAlloc = document.getElementById('id_allocation_unit_dollar');
+  const sellerBtcAlloc = document.getElementById('allocation_unit_btc');
 
-
-        // automatically update the btc endowment of seller, given dollar endowment
-        $seller_endowment = $('#seller_endowment');
-        $seller_dollar_allocation = $('#id_allocation_unit_dollar');
-        $seller_btc_allocation = $('#allocation_unit_btc')
-        $seller_dollar_allocation.on('input', function() {
-            {#  We wrap the answer into a javascript object #}
-            // alert($seller_dollar_allocation.val())
-            // alert($seller_allocation.val()-$seller_dollar_allocation.val())
-            $seller_btc_allocation.val($seller_endowment.val()-$seller_dollar_allocation.val())
-        });
-
-
-        // automatically update the dollar saving of buyer, given dollar endowment
-        $buyer_dollar_endowment = $('#buyer_dollar_endowment');
-        $buyer_dollar_allocation = $('#id_allocation_dollar');
-        $buyer_dollar_saving = $('#allocation_dollar_save')
-        $buyer_dollar_allocation.on('input', function() {
-            {#  We wrap the answer into a javascript object #}
-            $buyer_dollar_saving.val($buyer_dollar_endowment.val()-$buyer_dollar_allocation.val())
-        });
-
-        // automatically update the btc saving of buyer, given btc endowment
-        $buyer_btc_endowment = $('#buyer_btc_endowment');
-        $buyer_btc_allocation = $('#id_allocation_btc');
-        $buyer_btc_saving = $('#allocation_btc_save')
-        $buyer_btc_allocation.on('input', function() {
-            {#  We wrap the answer into a javascript object #}
-            $buyer_btc_saving.val($buyer_btc_endowment.val()-$buyer_btc_allocation.val())
-        });
-
+  if (sellerEndowment && sellerDollarAlloc && sellerBtcAlloc) {
+    sellerDollarAlloc.addEventListener('input', function () {
+      const endow = Number(sellerEndowment.value || 0);
+      const usd = Number(sellerDollarAlloc.value || 0);
+      sellerBtcAlloc.value = Math.max(0, endow - usd);
     });
+  }
+
+  // BUYER: auto-update dollar saving
+  const buyerDollarEndowment = document.getElementById('buyer_dollar_endowment');
+  const buyerDollarAlloc = document.getElementById('id_allocation_dollar');
+  const buyerDollarSave = document.getElementById('allocation_dollar_save');
+
+  if (buyerDollarEndowment && buyerDollarAlloc && buyerDollarSave) {
+    buyerDollarAlloc.addEventListener('input', function () {
+      const endow = Number(buyerDollarEndowment.value || 0);
+      const alloc = Number(buyerDollarAlloc.value || 0);
+      buyerDollarSave.value = Math.max(0, endow - alloc);
+    });
+  }
+
+  // BUYER: auto-update btc saving
+  const buyerBtcEndowment = document.getElementById('buyer_btc_endowment');
+  const buyerBtcAlloc = document.getElementById('id_allocation_btc');
+  const buyerBtcSave = document.getElementById('allocation_btc_save');
+
+  if (buyerBtcEndowment && buyerBtcAlloc && buyerBtcSave) {
+    buyerBtcAlloc.addEventListener('input', function () {
+      const endow = Number(buyerBtcEndowment.value || 0);
+      const alloc = Number(buyerBtcAlloc.value || 0);
+      buyerBtcSave.value = Math.max(0, endow - alloc);
+    });
+  }
+});
 </script>

@@ -7,11 +7,9 @@
 
 {% block content %}
 
-
-
 <div class="">
     {{ player.payment_message }}
-    Your total payment is {{ player.Currency_symbol}}{{ player.participant.payoff }} from the experimental earnings plus 9 euros of compensation fee.
+    Your total payment is {{ player.participant.payoff }} from the experimental earnings plus 9 euros of compensation fee.
     Please fill up a questionnaire and provide IBAN before leaving us.
 </div>
 
@@ -24,7 +22,7 @@
 
 {% block scripts %}
     {#  Here we include javascript block where we connect via websockets to oTree server  #}
-    {% include './includes/channel-js.html' %}
+    {% include 'double_auction/includes/channel-js.html' %}
 {% endblock %}
 
 

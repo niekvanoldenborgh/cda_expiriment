@@ -4,8 +4,8 @@
             {% else %}
 This is period <b>{{ group.round_within_sequence }}</b> of Sequence {{group.sequence_number}}.
         {% endif %}
-        You are a <b>{{ player.role|capfirst }}</b>.
-You have <b>{{ player.allocation_dollar }}</b> units of Currency A
-and <b>{{ player.allocation_btc }}</b> units of Currency B.
-You made <b>{{ player.Currency_symbol}}{{ player.thissequence_euro }}</b> from previous periods in the sequence.
+        You are a <b>{{ player.role}}</b>.
+You have <b id="geninfo_allocation_dollar">{{ player.allocation_dollar }}</b> units of Currency A
+and <b id="geninfo_allocation_btc">{{ player.allocation_btc }}</b> units of Currency B.
+You made <b> {{ player.thissequence_euro }}</b> from previous periods in the sequence.
 

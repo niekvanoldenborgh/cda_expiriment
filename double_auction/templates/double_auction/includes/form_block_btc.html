@@ -2,7 +2,7 @@
 
 <div class="col-md-4">
   <div class="card my-3">
-    <div class="card-body">
+    <div class="card-body btc_house">
 
       <table class="table table-sm table-striped">
         <thead>
@@ -27,7 +27,7 @@
         </tbody>
       </table>
 
-      <div class="form_container_btc">
+      <div class="form_container_btc" id="form_container_btc">
         {% include "double_auction/includes/form_to_render_btc.html" %}
       </div>
 
@@ -39,7 +39,7 @@
             <th>Quantity</th>
           </tr>
         </thead>
-        <tbody class="spread_container_btc">
+        <tbody class="spread_container_btc" id="spread_container_btc">
           {% include "double_auction/includes/spread_to_render_btc.html" %}
         </tbody>
       </table>

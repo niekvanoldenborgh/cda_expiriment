@@ -1,8 +1,9 @@
 {% for c in contracts %}
-<tr>
-    <td class="filterable-cell">{{ c.cost_value }}</td>
-    <td class="filterable-cell">{{ c.price }}</td>
-    <td class="filterable-cell">{{ c.quantity }}</td>
-    <td class="filterable-cell">{{ c.profit }}</td>
-</tr>
+    <tr>
+        <td style="width:  30%" class="filterable-cell" >{{ c.item.quantity }}</td>
+
+        <td style="width:  40%" class="filterable-cell">{% if player.role == 'buyer' %}{{ c.cost_value }}{% else %}&nbsp; {% endif %}</td>
+                    <td style="width:  30%" class="filterable-cell">{{ c.price }}</td>
+
+    </tr>
 {% endfor %}
