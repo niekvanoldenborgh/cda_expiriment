@@ -1593,11 +1593,27 @@ class IntroWp(WaitPage):
             # group is an independent market; the tax it collects is returned to
             # its own participants. (If markets had to be pooled across multiple
             # groups, this would instead be done at the subsession level.)
-            prev_group = g.in_round(self.round_number - 1)
-            total_btc_tax = prev_group.total_btc_tax_collected()
-
+            #
+            # IntroWp uses group_by_arrival_time, so groups may be rearranged
+            # between rounds and Group.in_round() is INVALID here (it raises
+            # InvalidRoundError). We instead reach the previous round's group(s)
+            # via Player.in_round(...).group, which is safe under GBAT (this is
+            # the same pattern the balance carry-over in step 2 relies on). Group
+            # membership is stable across rounds in this design (only roles
+            # swap), so the current players normally share a single previous
+            # group; we dedupe by group id to stay correct if they don't.
             players = sorted(g.get_players(), key=lambda p: p.id_in_group)
             number_of_players = len(players)
+
+            prev_round = self.round_number - 1
+            prev_groups = {}
+            for p in players:
+                prev_group = p.in_round(prev_round).group
+                prev_groups[prev_group.id] = prev_group
+            total_btc_tax = sum(
+                pg.total_btc_tax_collected() for pg in prev_groups.values()
+            )
+
             if total_btc_tax > 0 and number_of_players > 0:
                 # Rounding rule: each player gets the equal share rounded to the
                 # cent; any leftover residual (total - share * n, also to the

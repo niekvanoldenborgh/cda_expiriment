@@ -164,7 +164,7 @@ SESSION_CONFIGS = [
         # pays P_hat / f, the seller receives P_hat, and the tax (P_hat/f - P_hat)
         # is redistributed equally to all players at the start of the next period.
         # Currency A is never taxed.
-        btc_transaction_factor=1,
+        btc_transaction_factor=1.0,
         inflation_on=0,
         inflation_rate=0.3,
 
