@@ -204,6 +204,20 @@ These market games are made up of sequences of periods. Each sequence is played 
 
 
 
+{% if session.config.btc_transaction_factor != 1 %}
+<br>
+<h3>Transaction tax in Market B (Currency B)</h3>
+<p>A <strong>transaction tax applies only to trades in Market B (Currency B)</strong>. Trades in Market A (Currency A) are never taxed.</p>
+<ul>
+<li class="p1">Bids and asks in Market B are always shown <strong>at their pre-tax price</strong>. The displayed price, the spread, and the matching of bids and asks are unaffected by the tax.</li>
+<li class="p1">When a trade goes through in Market B at a displayed price, the <strong>seller receives exactly the displayed price</strong> in Currency B.</li>
+<li class="p1">The <strong>buyer pays the displayed price divided by f</strong>, where f = {{ session.config.btc_transaction_factor }}. Because f is at most 1, the buyer pays at least the displayed price; the extra amount (displayed price ÷ f − displayed price) is the tax.</li>
+<li class="p1">All tax collected in Market B during a period is <strong>returned to all players in equal shares as Currency B at the start of the next period</strong> (within the same sequence). Tax collected in the last period of a sequence is not carried into the next sequence.</li>
+</ul>
+<p style="padding-left: 30px;"><u>Example</u> (f = {{ session.config.btc_transaction_factor }}): a Market B trade displayed at a price of 50 means the seller receives 50 of Currency B and the buyer pays 50 ÷ {{ session.config.btc_transaction_factor }} of Currency B. The difference is collected as tax and split equally among all players next period.</p>
+{% endif %}
+
+
 <br>
 <h3>Your earnings at the end of the experiment</h3>
 <p class="p2">The chips you purchase convert into money, hence you can accrue earnings only when you are a buyer. The payoff graphic below <span class="s2">indicates how many {{ player.Currency_name}}s</span> you can earn (y-axis) as a function of the number of chips you purchase in a given period (x-axis). There is also a slider that you can use to see the exact amount of {{ player.Currency_name}}s for each exact number of chips.</p>

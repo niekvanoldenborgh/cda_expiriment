@@ -59,6 +59,7 @@ class Constants(BaseConstants):
         "inflation_on",
         "inflation_rate",
         "no_transaction_costs",
+        "btc_transaction_factor",
         "paid_sequence_1",
         "paid_sequence_2",
     )
@@ -97,6 +98,34 @@ def _session_config_int(session, key):
         return int(val)
     except (TypeError, ValueError):
         raise ValueError(f"session.config['{key}'] must be an integer (got {val!r})")
+
+
+def btc_transaction_factor_for_subsession(subsession):
+    """
+    Return the Currency B (bitcoin) transaction tax factor f for this subsession.
+
+    f lives in (0, 1]. f == 1 means no tax. For a BTC trade at auction price
+    P_hat the buyer pays P_hat / f and the seller receives P_hat, so the tax
+    collected is P_hat / f - P_hat. Currency A is never taxed.
+
+    Reads the registered Subsession field first (set from session.config by
+    set_config); falls back to session.config and finally to 1.0 (no tax) so
+    that sessions which never set the parameter behave exactly as before.
+    """
+    f = subsession.field_maybe_none("btc_transaction_factor")
+    if f in (None, ""):
+        f = subsession.session.config.get("btc_transaction_factor", 1)
+    try:
+        f = float(f)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"btc_transaction_factor must be a number in (0, 1] (got {f!r})"
+        )
+    if not (0.0 < f <= 1.0):
+        raise ValueError(
+            f"btc_transaction_factor must be in (0, 1] (got {f})"
+        )
+    return f
 
 
 def block_length_for_session(session):
@@ -198,6 +227,8 @@ class Subsession(BaseSubsession):
     inflation_on = models.IntegerField()
     inflation_rate = models.FloatField()
     no_transaction_costs = models.IntegerField()
+    # Currency B (bitcoin) transaction tax factor f, in (0, 1]. f = 1 => no tax.
+    btc_transaction_factor = models.FloatField()
     sequence_0 = models.IntegerField()
     sequence_1 = models.IntegerField()
     sequence_2 = models.IntegerField()
@@ -349,6 +380,23 @@ class Group(BaseGroup):
 
     def get_contracts(self, house):
         return Contract.filter(group=self, BTC_Statement=house)
+
+    def total_btc_tax_collected(self):
+        """
+        Sum of Currency B (bitcoin) transaction tax collected by THIS group's
+        market in THIS round. Dollar trades record tax_paid_btc == 0, so summing
+        over all contracts of the group yields only the BTC tax.
+        """
+        total = 0.0
+        for contract in Contract.filter(group=self):
+            # ExtraModels have no field_maybe_none; tax_paid_btc has initial=0.0,
+            # but guard against NULL on rows created before this column existed.
+            try:
+                tax = contract.tax_paid_btc
+            except Exception:
+                tax = None
+            total += float(tax or 0.0)
+        return total
 
 
     def get_bids(self, house):
@@ -1138,10 +1186,13 @@ class Ask(ExtraModel):
 
             # funds check on buyer
             if bid.BTC_Statement is False:
+                # Currency A: untaxed, check against P_hat.
                 if bid.player.allocation_dollar < float(bid.price):
                     raise NotEnoughFunds(bid.player, bid.BTC_Statement, bid.player.allocation_dollar)
             else:
-                if bid.player.allocation_btc < float(bid.price):
+                # Currency B: buyer pays P_hat / f, so check against P_hat / f.
+                f = btc_transaction_factor_for_subsession(bid.player.subsession)
+                if bid.player.allocation_btc < float(bid.price) / f:
                     raise NotEnoughFunds(bid.player, bid.BTC_Statement, bid.player.allocation_btc)
 
             item = player.item_to_sell(BTC_Statement)
@@ -1200,10 +1251,14 @@ class Bid(ExtraModel):
         # ---- pre-check: buyer has enough funds for total quantity
         total_cost = price * quantity
         if BTC_Statement is False:
+            # Currency A: never taxed, affordability unchanged.
             if player.allocation_dollar < total_cost:
                 raise NotEnoughFunds(player, BTC_Statement, player.allocation_dollar)
         else:
-            if player.allocation_btc < total_cost:
+            # Currency B: buyer ultimately pays P_hat / f, so require funds for
+            # the post-tax payment (price * quantity / f), not the pre-tax price.
+            f = btc_transaction_factor_for_subsession(player.subsession)
+            if player.allocation_btc < total_cost / f:
                 raise NotEnoughFunds(player, BTC_Statement, player.allocation_btc)
 
         # ---- deactivate previous bids from this player/house/round
@@ -1259,10 +1314,13 @@ class Bid(ExtraModel):
             # ---- funds re-check (safety)
             # (for 1 unit at a time; Contract.create likely decrements balances)
             if bid.BTC_Statement is False:
+                # Currency A: untaxed, check against P_hat.
                 if bid.player.allocation_dollar < float(bid.price):
                     raise NotEnoughFunds(bid.player, bid.BTC_Statement, bid.player.allocation_dollar)
             else:
-                if bid.player.allocation_btc < float(bid.price):
+                # Currency B: buyer pays P_hat / f, so check against P_hat / f.
+                f = btc_transaction_factor_for_subsession(bid.player.subsession)
+                if bid.player.allocation_btc < float(bid.price) / f:
                     raise NotEnoughFunds(bid.player, bid.BTC_Statement, bid.player.allocation_btc)
 
             # ---- seller provides item
@@ -1316,6 +1374,14 @@ class Contract(ExtraModel):
     cost = models.FloatField()
     value = models.FloatField()
 
+    # Explicit, auditable money flows for Currency B (bitcoin) trades.
+    # For dollar (Currency A) trades these are: payment == receipt == price,
+    # tax == 0. For BTC trades: buyer_payment_btc == P_hat / f,
+    # seller_receipt_btc == P_hat, tax_paid_btc == P_hat / f - P_hat.
+    buyer_payment_btc = models.FloatField(initial=0.0)
+    seller_receipt_btc = models.FloatField(initial=0.0)
+    tax_paid_btc = models.FloatField(initial=0.0)
+
     def get_seller(self):
         return self.ask.player
 
@@ -1352,16 +1418,36 @@ class Contract(ExtraModel):
         
 
         # money transfer (per unit trade)
+        P_hat = float(contract.price)  # auction price stays pre-tax
         if bid.BTC_Statement is False:
-            buyer.allocation_dollar -= float(contract.price)
-            seller.allocation_dollar += float(contract.price)
-            buyer.thisround_dollar -= float(contract.price)
-            seller.thisround_dollar += float(contract.price)
+            # Currency A: untaxed. Buyer pays P_hat, seller receives P_hat.
+            buyer.allocation_dollar -= P_hat
+            seller.allocation_dollar += P_hat
+            buyer.thisround_dollar -= P_hat
+            seller.thisround_dollar += P_hat
+
+            # Record flows for completeness/auditing (no tax on Currency A).
+            contract.buyer_payment_btc = 0.0
+            contract.seller_receipt_btc = 0.0
+            contract.tax_paid_btc = 0.0
         else:
-            buyer.allocation_btc -= float(contract.price)
-            seller.allocation_btc += float(contract.price)
-            buyer.thisround_btc -= float(contract.price)
-            seller.thisround_btc += float(contract.price)
+            # Currency B: buyer pays P_hat / f, seller receives P_hat. The
+            # difference P_hat / f - P_hat is the tax, redistributed next period.
+            f = btc_transaction_factor_for_subsession(group.subsession)
+            buyer_payment = P_hat / f
+            seller_receipt = P_hat
+            tax = buyer_payment - seller_receipt
+
+            buyer.allocation_btc -= buyer_payment
+            seller.allocation_btc += seller_receipt
+            buyer.thisround_btc -= buyer_payment
+            seller.thisround_btc += seller_receipt
+
+            # Store the asymmetric amounts explicitly so the tax never has to
+            # be recomputed downstream.
+            contract.buyer_payment_btc = buyer_payment
+            contract.seller_receipt_btc = seller_receipt
+            contract.tax_paid_btc = tax
 
 
         # decrement & persist ask quantity/active
@@ -1488,11 +1574,40 @@ class IntroWp(WaitPage):
                 p.allocation_dollar_save = 0.0
                 p.allocation_btc_save = 0.0
 
-        # 4) inflation (only when not sequence-start)
+        # 4) inflation + BTC tax redistribution (only when NOT sequence-start)
+        #
+        # Both run only in this branch, i.e. when the current round continues the
+        # same sequence as the previous round. This guarantees that tax collected
+        # in the final period of a sequence is NOT carried into the reset first
+        # period of the next sequence (step 3 above performs the reset and skips
+        # this branch entirely), satisfying the "redistribute within the same
+        # sequence only" rule.
         else:
             if sub.inflation_on == 1:
                 for p in g.get_players():
                     p.allocation_dollar = round(p.allocation_dollar * (1 + sub.inflation_rate), 2)
+
+            # Redistribute the previous period's collected BTC tax equally to
+            # every player in THIS group (the market that produced the tax).
+            # Scope = group: bids/asks/contracts are all group-scoped, so each
+            # group is an independent market; the tax it collects is returned to
+            # its own participants. (If markets had to be pooled across multiple
+            # groups, this would instead be done at the subsession level.)
+            prev_group = g.in_round(self.round_number - 1)
+            total_btc_tax = prev_group.total_btc_tax_collected()
+
+            players = sorted(g.get_players(), key=lambda p: p.id_in_group)
+            number_of_players = len(players)
+            if total_btc_tax > 0 and number_of_players > 0:
+                # Rounding rule: each player gets the equal share rounded to the
+                # cent; any leftover residual (total - share * n, also to the
+                # cent) is assigned to the lowest-id_in_group player so that the
+                # amounts redistributed sum back exactly to the tax collected.
+                share = round(total_btc_tax / number_of_players, 2)
+                residual = round(total_btc_tax - share * number_of_players, 2)
+                for p in players:
+                    p.allocation_btc += share
+                players[0].allocation_btc += residual
 
     
     

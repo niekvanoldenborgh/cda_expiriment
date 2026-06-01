@@ -159,6 +159,12 @@ SESSION_CONFIGS = [
 
         # Main app params (double_auction)
         no_transaction_costs=0,      # 0 keep transaction-cost schedule, 1 remove
+        # Currency B (bitcoin) transaction tax factor f, constrained to (0, 1].
+        # f = 1 means no tax. For a BTC trade at auction price P_hat the buyer
+        # pays P_hat / f, the seller receives P_hat, and the tax (P_hat/f - P_hat)
+        # is redistributed equally to all players at the start of the next period.
+        # Currency A is never taxed.
+        btc_transaction_factor=1,
         inflation_on=0,
         inflation_rate=0.3,
 
@@ -185,6 +191,9 @@ SESSION_CONFIGS = [
 
         # If your pages/models use this, include it
         currency_exchange_on=0,
+
+        #
+
     ),
         # Survey Only
     
