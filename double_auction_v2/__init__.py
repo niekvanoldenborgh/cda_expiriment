@@ -15,8 +15,9 @@ from django.utils.safestring import mark_safe
 
 from django.db.models.query import QuerySet
 
-from .exceptions import NotEnoughFunds, NotEnoughItemsToSell, NoEndowment, NoItems
+from .exceptions import MarketException, NotEnoughFunds, NotEnoughItemsToSell, NoEndowment, NoItems
 import time
+import random
 
 
 
@@ -60,6 +61,9 @@ class Constants(BaseConstants):
         "inflation_rate",
         "no_transaction_costs",
         "btc_transaction_factor",
+        "dollar_freeze_enabled",
+        "freeze_probability",
+        "freeze_seed",
         "paid_sequence_1",
         "paid_sequence_2",
     )
@@ -126,6 +130,88 @@ def btc_transaction_factor_for_subsession(subsession):
             f"btc_transaction_factor must be in (0, 1] (got {f})"
         )
     return f
+
+
+def dollar_freeze_draw(freeze_seed, buyer_index, round_number):
+    """
+    Return omega's underlying uniform draw in [0, 1) for buyer position
+    `buyer_index` in `round_number`, as a PURE FUNCTION of
+    (freeze_seed, buyer_index, round_number).
+
+    Why per-draw seeding (not a single global random.seed): if we seeded once
+    and pulled from the shared stream inside per-player/per-page code, the draw a
+    given buyer receives would depend on the order in which players/pages happen
+    to consume the RNG, which is not stable across sessions or groups. Seeding a
+    fresh RNG from (seed, buyer_index, round) makes each omega independent of
+    consumption order, so the SAME buyer positions are frozen in the SAME periods
+    across different sessions AND different groups for a fixed seed. Group/session
+    ids are deliberately NOT part of the key, so the schedule is identical across
+    groups and sessions.
+
+    Note: the spec writes `random.Random((seed, i, t))`, but Python 3.11+ rejects
+    tuple seeds, so we serialise the tuple into a stable string seed. String/bytes
+    seeding is fully deterministic across processes/machines and is unaffected by
+    PYTHONHASHSEED (unlike hash() of a tuple).
+    """
+    rng = random.Random(
+        f"dollar_freeze|{int(freeze_seed)}|{int(buyer_index)}|{int(round_number)}"
+    )
+    return rng.random()
+
+
+def is_dollar_frozen_for(freeze_seed, buyer_index, round_number, probability):
+    """omega = 1 (frozen) iff the per-draw uniform is < probability."""
+    return dollar_freeze_draw(freeze_seed, buyer_index, round_number) < probability
+
+
+def dollar_frozen_exception():
+    """Exception raised when a frozen buyer attempts to use dollars."""
+    return MarketException(
+        "Your Dollar (Currency A) account is frozen this period; you cannot use dollars.",
+        {"warning": (
+            "Your Dollar (Currency A) account is frozen this period. "
+            "You cannot post or accept Dollar offers now. Your dollar balance "
+            "is kept and will be usable again in a later period. Your Currency B "
+            "(bitcoin) trading is unaffected."
+        )},
+    )
+
+
+def dollar_freeze_params(subsession):
+    """
+    Return (enabled, probability, seed) for the dollar-freeze feature.
+
+    Reads the registered Subsession fields first (set from session.config by
+    set_config), falling back to session.config and finally to the feature-off
+    defaults (disabled, probability 0, seed 0) so sessions that never set these
+    behave exactly as before. probability is validated to lie in [0, 1].
+    """
+    cfg = subsession.session.config
+
+    enabled = subsession.field_maybe_none("dollar_freeze_enabled")
+    if enabled is None:
+        enabled = cfg.get("dollar_freeze_enabled", False)
+    enabled = bool(enabled)
+
+    prob = subsession.field_maybe_none("freeze_probability")
+    if prob in (None, ""):
+        prob = cfg.get("freeze_probability", 0)
+    try:
+        prob = float(prob)
+    except (TypeError, ValueError):
+        raise ValueError(f"freeze_probability must be a number in [0, 1] (got {prob!r})")
+    if not (0.0 <= prob <= 1.0):
+        raise ValueError(f"freeze_probability must be in [0, 1] (got {prob})")
+
+    seed = subsession.field_maybe_none("freeze_seed")
+    if seed in (None, ""):
+        seed = cfg.get("freeze_seed", 0)
+    try:
+        seed = int(seed)
+    except (TypeError, ValueError):
+        raise ValueError(f"freeze_seed must be an integer (got {seed!r})")
+
+    return enabled, prob, seed
 
 
 def block_length_for_session(session):
@@ -229,6 +315,13 @@ class Subsession(BaseSubsession):
     no_transaction_costs = models.IntegerField()
     # Currency B (bitcoin) transaction tax factor f, in (0, 1]. f = 1 => no tax.
     btc_transaction_factor = models.FloatField()
+    # Dollar (Currency A) freeze feature. When enabled, each buyer's dollar
+    # account may be frozen (unusable) for a period with probability
+    # freeze_probability, drawn reproducibly from freeze_seed. See the freeze
+    # helpers below. Disabled by default => no behavioral change.
+    dollar_freeze_enabled = models.BooleanField()
+    freeze_probability = models.FloatField()
+    freeze_seed = models.IntegerField()
     sequence_0 = models.IntegerField()
     sequence_1 = models.IntegerField()
     sequence_2 = models.IntegerField()
@@ -574,6 +667,11 @@ class Player(BasePlayer):
     active_btc = models.BooleanField(initial=True)
     endowment = models.FloatField(initial=0)
 
+    # omega for this buyer this round: True => Dollar (Currency A) account frozen
+    # (unusable) this period. Always False for sellers and whenever the feature is
+    # disabled. The dollar BALANCE is never zeroed; only its usability is gated.
+    dollar_frozen = models.BooleanField(initial=False)
+
     units_dollar = models.IntegerField(initial=0)
     units_btc = models.IntegerField(initial=0)
 
@@ -834,9 +932,37 @@ class Player(BasePlayer):
             self.thissequence_profit = 0
             self.thissequence_euro = 0
 
+    def is_dollar_frozen(self):
+        """omega for this buyer this round (True => Dollar account frozen).
+
+        Robust against a NULL field; sellers/disabled-feature are always False.
+        """
+        return bool(self.field_maybe_none("dollar_frozen"))
+
+    def compute_dollar_frozen(self):
+        """
+        Set self.dollar_frozen for this round, deterministically.
+
+        Only buyers can be frozen, and only when the feature is enabled. The draw
+        is a pure function of (freeze_seed, id_in_group, round_number) so it is
+        reproducible across sessions and groups (see dollar_freeze_draw). Sellers
+        and the feature-off case are always False.
+        """
+        enabled, prob, seed = dollar_freeze_params(self.subsession)
+        if not enabled or self.role() != "buyer":
+            self.dollar_frozen = False
+            return
+        self.dollar_frozen = is_dollar_frozen_for(
+            seed, self.id_in_group, self.round_number, prob
+        )
+
     def is_active(self, house):
         if house is False:
             if self.role() == "buyer":
+                # A frozen buyer has no USABLE dollars this period (balance is
+                # preserved, just unusable). Currency B is unaffected.
+                if self.is_dollar_frozen():
+                    return False
                 return self.allocation_dollar > 0 and self.has_free_slots(house)
             return bool(self.get_full_slots(house))   # <- FIX
         else:
@@ -973,7 +1099,10 @@ class Player(BasePlayer):
             alloc_dollar = self.field_maybe_none("allocation_dollar") or 0
             alloc_btc = self.field_maybe_none("allocation_btc") or 0
 
-            no_slots_or_funds_dollar = (alloc_dollar <= 0) or (not self.has_free_slots(False)) or house_dollar_inactive
+            # A frozen buyer's Dollar interface is disabled this period (BTC is
+            # untouched). This also drives the live-update form_state, so the
+            # disable persists across live refreshes.
+            no_slots_or_funds_dollar = (alloc_dollar <= 0) or (not self.has_free_slots(False)) or house_dollar_inactive or self.is_dollar_frozen()
             no_slots_or_funds_btc = (alloc_btc <= 0) or (not self.has_free_slots(True)) or house_btc_inactive
 
         else:
@@ -1186,6 +1315,10 @@ class Ask(ExtraModel):
 
             # funds check on buyer
             if bid.BTC_Statement is False:
+                # Currency A: a frozen buyer has zero usable dollars (defense in
+                # depth; frozen buyers never hold active Dollar bids to match).
+                if bid.player.is_dollar_frozen():
+                    raise dollar_frozen_exception()
                 # Currency A: untaxed, check against P_hat.
                 if bid.player.allocation_dollar < float(bid.price):
                     raise NotEnoughFunds(bid.player, bid.BTC_Statement, bid.player.allocation_dollar)
@@ -1251,6 +1384,12 @@ class Bid(ExtraModel):
         # ---- pre-check: buyer has enough funds for total quantity
         total_cost = price * quantity
         if BTC_Statement is False:
+            # Currency A: a frozen buyer has zero USABLE dollars this period and
+            # is rejected outright (covers both posting a Dollar bid and the
+            # "Accept best ask" path, which also creates a bid). Balance is left
+            # untouched. Currency B is never affected by the freeze.
+            if player.is_dollar_frozen():
+                raise dollar_frozen_exception()
             # Currency A: never taxed, affordability unchanged.
             if player.allocation_dollar < total_cost:
                 raise NotEnoughFunds(player, BTC_Statement, player.allocation_dollar)
@@ -1314,6 +1453,11 @@ class Bid(ExtraModel):
             # ---- funds re-check (safety)
             # (for 1 unit at a time; Contract.create likely decrements balances)
             if bid.BTC_Statement is False:
+                # Currency A: a frozen buyer has zero usable dollars (defense in
+                # depth; a frozen buyer can never reach here because posting is
+                # blocked above).
+                if bid.player.is_dollar_frozen():
+                    raise dollar_frozen_exception()
                 # Currency A: untaxed, check against P_hat.
                 if bid.player.allocation_dollar < float(bid.price):
                     raise NotEnoughFunds(bid.player, bid.BTC_Statement, bid.player.allocation_dollar)
@@ -1550,6 +1694,13 @@ class IntroWp(WaitPage):
         g.set_role()
         g.set_total_round()
         g.set_sequence()
+
+        # 0) dollar-freeze schedule for this period. Roles are now set, so this
+        # only freezes buyers (sellers/disabled => always False). Done before the
+        # trading interface is shown. The dollar BALANCE is never touched here;
+        # only the per-period usability flag (dollar_frozen) is set.
+        for p in g.get_players():
+            p.compute_dollar_frozen()
 
         # 1) payoff bookkeeping
         for p in g.get_players():

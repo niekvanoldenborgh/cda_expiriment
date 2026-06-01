@@ -27,14 +27,14 @@
         </tbody>
       </table>
 
-      {% if session.config.btc_transaction_factor != 1 %}
+      <!-- {% if session.config.btc_transaction_factor != 1 %}
       <p class="small text-muted mb-2">
         Market B is taxed (f = {{ session.config.btc_transaction_factor }}). Prices shown are
         pre-tax: the <strong>seller receives the displayed price</strong>, the
         <strong>buyer pays the displayed price ÷ f</strong>. The tax collected is returned to all
         players in equal shares at the start of the next period.
       </p>
-      {% endif %}
+      {% endif %} -->
 
       <div class="form_container_btc" id="form_container_btc">
         {% include "double_auction_v2/includes/form_to_render_btc.html" %}

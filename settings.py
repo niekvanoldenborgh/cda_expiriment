@@ -165,6 +165,17 @@ SESSION_CONFIGS = [
         # is redistributed equally to all players at the start of the next period.
         # Currency A is never taxed.
         btc_transaction_factor=1.0,
+        # Dollar (Currency A) freeze feature. When enabled, each BUYER's dollar
+        # account is independently frozen (unusable, but balance preserved) each
+        # period with probability `freeze_probability`. The schedule is fully
+        # reproducible from `freeze_seed`: the same seed freezes the same buyer
+        # positions (id_in_group) in the same periods across sessions and groups.
+        # Sellers are never frozen and Currency B (bitcoin) is never affected.
+        # NOTE: floats are written as 1.0/0.0 so oTree's session-config editor
+        # treats them as float inputs (an int default truncates e.g. 0.3 -> 0).
+        dollar_freeze_enabled=False,
+        freeze_probability=0.0,
+        freeze_seed=0,
         inflation_on=0,
         inflation_rate=0.3,
 

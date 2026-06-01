@@ -1,3 +1,12 @@
+{% if player.is_dollar_frozen %}
+<div class="alert alert-warning py-2 px-2 mb-2" role="alert">
+    <strong>Your Dollar (Currency A) account is frozen this period.</strong>
+    You cannot use your dollars to bid or accept offers right now. Your dollar
+    balance is kept and will be usable again in a later period. Your Currency B
+    (bitcoin) trading is unaffected.
+</div>
+{% endif %}
+
 <div class="form-row">
     <div class="form-group col-md-6 form-inline">
         <label for="price" class="mr-3">Price:</label>

@@ -204,6 +204,18 @@ These market games are made up of sequences of periods. Each sequence is played 
 
 
 
+{% if session.config.dollar_freeze_enabled %}
+<br>
+<h3>Dollar account freeze (Currency A)</h3>
+<p>In some periods, your <strong>Dollar (Currency A) account may be frozen</strong>. Whether your dollar account is frozen is decided <strong>randomly and independently in each period</strong> while you are a buyer.</p>
+<ul>
+<li class="p1">While your dollar account is frozen, <strong>you cannot use your dollars</strong>: you cannot post Dollar bids or accept Dollar offers that period. The Dollar interface is disabled and clearly marked as frozen.</li>
+<li class="p1">Your <strong>dollar balance is not lost</strong>. It is kept and carried over, and becomes fully usable again in any later period in which your dollar account is not frozen.</li>
+<li class="p1">A freeze affects <strong>only Currency A</strong>. Your <strong>Currency B (bitcoin) trading is never affected</strong> — you can keep trading in Market B normally even when your dollars are frozen.</li>
+<li class="p1">Sellers are never frozen; the freeze only applies to buyers.</li>
+</ul>
+{% endif %}
+
 {% if session.config.btc_transaction_factor != 1 %}
 <br>
 <h3>Transaction tax in Market B (Currency B)</h3>
