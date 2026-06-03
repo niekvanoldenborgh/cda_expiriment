@@ -26,7 +26,7 @@
 		{% include 'double_auction_v2/includes/bids_block.html' %}
 	</div>
 
-	<div class= "row bottomrow">
+	<div class= "row bottomrow{% if player.btc_tax_active %} bottomrow-taxed{% endif %}">
 		{% include 'double_auction_v2/includes/form_block_btc.html' %}
 		{% include 'double_auction_v2/includes/info_block_btc.html' %}
 		{% include 'double_auction_v2/includes/asks_block_btc.html' %}

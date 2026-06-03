@@ -93,6 +93,11 @@ C = Constants
 
 SEQUENCE_COUNT = 4
 
+# Sequence index treated as the training/practice block. Participants use it to
+# learn the interface, so game mechanics that would confound learning (currently
+# the Dollar freeze) are gated out for this sequence. See compute_dollar_frozen.
+TRAINING_SEQUENCE_INDEX = 0
+
 
 def _session_config_int(session, key):
     val = session.config.get(key)
@@ -130,6 +135,37 @@ def btc_transaction_factor_for_subsession(subsession):
             f"btc_transaction_factor must be in (0, 1] (got {f})"
         )
     return f
+
+
+def _btc_gross_price(price, f):
+    """
+    Buyer's tax-inclusive Currency B (bitcoin) price P_hat / f, rounded for DISPLAY.
+
+    Shown in the dedicated "Incl. tax" table column next to the pre-tax auction
+    price (which keeps its original meaning: the value the market matches on and
+    that the SELLER receives). Returns None when the price is missing or f is
+    unusable.
+
+    Purely cosmetic: it NEVER feeds any affordability or tax computation; the tax
+    logic in Bid/Ask.create_and_match and Contract.execute_trade is the single
+    source of truth and is left exactly as-is.
+    """
+    if price in (None, ""):
+        return None
+    try:
+        f = float(f)
+    except (TypeError, ValueError):
+        return None
+    return round(float(price) / f, 2)
+
+
+def btc_tax_active_for_subsession(subsession):
+    """True when Currency B (bitcoin) trades are taxed (f < 1) for this subsession.
+
+    Drives whether the display-only "Incl. tax" column is shown; when there is no
+    tax the order book / trade history render exactly as before.
+    """
+    return btc_transaction_factor_for_subsession(subsession) < 1.0
 
 
 def dollar_freeze_draw(freeze_seed, buyer_index, round_number):
@@ -458,6 +494,11 @@ class Group(BaseGroup):
     # -----------------------
     # Existing functions
     # -----------------------
+    def btc_tax_active(self):
+        """True when Currency B (bitcoin) is taxed (f < 1); drives the display-only
+        'Incl. tax' column. No tax => column hidden, layout unchanged."""
+        return btc_tax_active_for_subsession(self.subsession)
+
     def get_channel_group_name(self):
         return f"double_auction_group_{self.pk}"
 
@@ -932,6 +973,11 @@ class Player(BasePlayer):
             self.thissequence_profit = 0
             self.thissequence_euro = 0
 
+    def btc_tax_active(self):
+        """True when Currency B (bitcoin) is taxed (f < 1); drives the display-only
+        'Incl. tax' column. No tax => column hidden, layout unchanged."""
+        return btc_tax_active_for_subsession(self.subsession)
+
     def is_dollar_frozen(self):
         """omega for this buyer this round (True => Dollar account frozen).
 
@@ -947,9 +993,19 @@ class Player(BasePlayer):
         is a pure function of (freeze_seed, id_in_group, round_number) so it is
         reproducible across sessions and groups (see dollar_freeze_draw). Sellers
         and the feature-off case are always False.
+
+        The training sequence (sequence index 0) is never frozen: it exists so
+        participants can practice the interface, so the freeze mechanic is gated
+        out there regardless of seed/probability. Note this consumes no draw, so
+        the (seed, id_in_group, round_number) schedule for the paid sequences is
+        unchanged by this gate.
         """
         enabled, prob, seed = dollar_freeze_params(self.subsession)
         if not enabled or self.role() != "buyer":
+            self.dollar_frozen = False
+            return
+        # Skip the freeze during the training/practice sequence (index 0).
+        if self.current_sequence_index() == TRAINING_SEQUENCE_INDEX:
             self.dollar_frozen = False
             return
         self.dollar_frozen = is_dollar_frozen_for(
@@ -1244,6 +1300,16 @@ class Ask(ExtraModel):
     active = models.BooleanField(initial=True)
     created_at = models.FloatField(initial=_now)
 
+    @property
+    def price_incl_tax(self):
+        """Display-only tax-inclusive price P_hat/f for this ask (see
+        _btc_gross_price). None for Currency A (dollar) statements."""
+        if not self.BTC_Statement:
+            return None
+        return _btc_gross_price(
+            self.price, btc_transaction_factor_for_subsession(self.group.subsession)
+        )
+
     @classmethod
     def active_qs(cls, group, house):
         # returns a LIST of Ask objects
@@ -1356,6 +1422,16 @@ class Bid(ExtraModel):
     round_statement = models.IntegerField()
     active = models.BooleanField(initial=True)
     created_at = models.FloatField(initial=_now)
+
+    @property
+    def price_incl_tax(self):
+        """Display-only tax-inclusive price P_hat/f for this bid (see
+        _btc_gross_price). None for Currency A (dollar) statements."""
+        if not self.BTC_Statement:
+            return None
+        return _btc_gross_price(
+            self.price, btc_transaction_factor_for_subsession(self.group.subsession)
+        )
 
     def as_dict(self):
         return dict(
@@ -1525,6 +1601,17 @@ class Contract(ExtraModel):
     buyer_payment_btc = models.FloatField(initial=0.0)
     seller_receipt_btc = models.FloatField(initial=0.0)
     tax_paid_btc = models.FloatField(initial=0.0)
+
+    @property
+    def price_incl_tax(self):
+        """Display-only tax-inclusive price P_hat/f for this executed contract
+        (see _btc_gross_price). None for Currency A (dollar) contracts. The stored
+        price stays the pre-tax match price."""
+        if not bool(getattr(self.bid, "BTC_Statement", False)):
+            return None
+        return _btc_gross_price(
+            self.price, btc_transaction_factor_for_subsession(self.group.subsession)
+        )
 
     def get_seller(self):
         return self.ask.player
@@ -1995,12 +2082,15 @@ class GeneratingInitialsWP(WaitPage):
 # HELPERS FOR SENDING DATA TO UI
 # -----------------------------
 
-def _serialize_stmt_for(p, s):
+def _serialize_stmt_for(p, s, f=None, house=False):
     return {
         "id": s.id,
         "price": float(s.price) if s.price is not None else None,
         "quantity": int(s.quantity) if s.quantity is not None else None,
         "is_me": (s.player_id == p.id),
+        # Display-only tax-inclusive price for the "Incl. tax" column; None for
+        # Currency A so the dollar market renders exactly as before.
+        "incl_tax": _btc_gross_price(s.price, f) if house else None,
     }
 
 
@@ -2045,7 +2135,7 @@ def _contracts_to_dict(p, house):
     """
     Return only primitive JSON-safe values for the contracts section of the info block.
     """
-    
+
     contracts = p.get_contracts(house) or []
 
     # newest first
@@ -2054,20 +2144,28 @@ def _contracts_to_dict(p, house):
         reverse=True
     )
 
+    # Display-only tax factor for the Currency B (bitcoin) contracts table.
+    f = btc_transaction_factor_for_subsession(p.subsession) if house else None
+
     result = []
 
     for c in contracts:
+        # Display-only tax-inclusive price for the "Incl. tax" column; None for
+        # Currency A. See _btc_gross_price.
+        incl_tax = _btc_gross_price(c.price, f) if house else None
         if p.role() == "buyer":
             result.append({
                 "item_quantity": c.item.quantity,
                 "value": c.value,
-                "price": c.price
+                "price": c.price,
+                "incl_tax": incl_tax,
             })
-            
+
         else:
             result.append({
                 "item_quantity": c.item.quantity,
-                "price": c.price
+                "price": c.price,
+                "incl_tax": incl_tax,
             })
             
  
@@ -2174,6 +2272,9 @@ def live_market(player: Player, data):
     asks_b = g.get_asks(True)
     bids_b = g.get_bids(True)
 
+    # Display-only tax factor for Currency B (bitcoin) price suffixes.
+    f_btc = btc_transaction_factor_for_subsession(g.subsession)
+
 
     # -----------------------
     # 3) Build rich per-player payloads
@@ -2203,8 +2304,8 @@ def live_market(player: Player, data):
                     "bids": [_serialize_stmt_for(p, b) for b in bids_d],
                 },
                 "btc": {
-                    "asks": [_serialize_stmt_for(p, a) for a in asks_b],
-                    "bids": [_serialize_stmt_for(p, b) for b in bids_b],
+                    "asks": [_serialize_stmt_for(p, a, f_btc, True) for a in asks_b],
+                    "bids": [_serialize_stmt_for(p, b, f_btc, True) for b in bids_b],
                 },
             },
             "form_state": {
@@ -2217,7 +2318,9 @@ def live_market(player: Player, data):
             "profit": _profit_to_dict(p),
             "contracts": _contracts_to_dict(p, False),
             "contracts_btc": _contracts_to_dict(p, True),
-            "currency_symbol": p.Currency_symbol()
+            "currency_symbol": p.Currency_symbol(),
+            # Whether to render the display-only "Incl. tax" column (BTC tables).
+            "tax_on": bool(f_btc < 1.0),
         }
        
             

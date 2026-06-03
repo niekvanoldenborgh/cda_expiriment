@@ -13,9 +13,16 @@
       <table class="table table-striped header-fixed tablecol-4 contracts-table">
         <thead>
           <tr>
-            <th style="width: 30%" class="filterable-cell">Quantity</th>
-            <th style="width: 40%" class="filterable-cell">Chips content</th>
-            <th style="width: 30%" class="filterable-cell">Price</th>
+            {% if player.btc_tax_active %}
+              <th style="width: 25%" class="filterable-cell">Quantity</th>
+              <th style="width: 30%" class="filterable-cell">Chips content</th>
+              <th style="width: 22%" class="filterable-cell">Price</th>
+              <th style="width: 23%" class="filterable-cell">Incl. tax</th>
+            {% else %}
+              <th style="width: 30%" class="filterable-cell">Quantity</th>
+              <th style="width: 40%" class="filterable-cell">Chips content</th>
+              <th style="width: 30%" class="filterable-cell">Price</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody class="contracts_container_btc" id="contracts_rows_btc">

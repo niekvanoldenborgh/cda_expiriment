@@ -1,7 +1,14 @@
 {% for a in asks_btc %}
     <tr {% if a.player == player %}class="text-light bg-success"{% endif %}>
-        <td style="width: 30%" class="filterable-cell">{{ a.price }}</td>
-        <td style="width: 40%" class="filterable-cell">{{ a.quantity }}</td>
-        <td style="width: 30%">{% if a.player == player %}(You!){% else %}&nbsp;{% endif %}</td>
+        {% if player.btc_tax_active %}
+            <td style="width: 25%" class="filterable-cell">{{ a.price }}</td>
+            <td style="width: 25%" class="filterable-cell">{{ a.price_incl_tax }}</td>
+            <td style="width: 30%" class="filterable-cell">{{ a.quantity }}</td>
+            <td style="width: 20%">{% if a.player == player %}(You!){% else %}&nbsp;{% endif %}</td>
+        {% else %}
+            <td style="width: 30%" class="filterable-cell">{{ a.price }}</td>
+            <td style="width: 40%" class="filterable-cell">{{ a.quantity }}</td>
+            <td style="width: 30%">{% if a.player == player %}(You!){% else %}&nbsp;{% endif %}</td>
+        {% endif %}
     </tr>
 {% endfor %}

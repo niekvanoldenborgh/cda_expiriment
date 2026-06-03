@@ -79,11 +79,24 @@ function setInnerHtmlById(id, html) {
 	
   }
 
-  function renderOrderRows(rows) {
+  function renderOrderRows(rows, taxOn) {
     rows = rows || [];
     return rows.map(r => {
       const mine = !!(r.is_mine ?? r.isMine ?? r.is_me);
       const trClass = mine ? 'text-light bg-success' : '';
+      // Display-only "Incl. tax" column, shown only when BTC trades are taxed.
+      // Widths mirror the gated header in asks_block_btc / bids_block_btc.
+      if (taxOn) {
+        const inclTax = (r.incl_tax === null || r.incl_tax === undefined) ? '' : r.incl_tax;
+        return `
+          <tr class="${trClass}">
+            <td style="width:25%" class="filterable-cell">${escapeHtml(r.price)}</td>
+            <td style="width:25%" class="filterable-cell">${escapeHtml(inclTax)}</td>
+            <td style="width:30%" class="filterable-cell">${escapeHtml(r.quantity)}</td>
+            <td style="width:20%">${mine ? '(You!)' : '&nbsp;'}</td>
+          </tr>
+        `;
+      }
       return `
         <tr class="${trClass}">
           <td style="width:30%" class="filterable-cell">${escapeHtml(r.price)}</td>
@@ -143,6 +156,7 @@ function renderGenInfo(genInfo) {
 
 
 function renderContracts(contracts) {
+  const taxOn = false;  // dollar trade history is never taxed
   try {
     const tb = document.getElementById('contracts_rows');
     if (!tb) return;
@@ -155,8 +169,19 @@ function renderContracts(contracts) {
 
       const qty   = c.item_quantity ?? '';
       const price = c.price ?? '';
-      const chips = c.value ?? ''; 
+      const chips = c.value ?? '';
+      const inclTax = (c.incl_tax === null || c.incl_tax === undefined) ? '' : c.incl_tax;
 
+      if (taxOn) {
+        return `
+          <tr>
+            <td style="width:25%" class="filterable-cell">${escapeHtml(qty)}</td>
+            <td style="width:30%" class="filterable-cell">${escapeHtml(chips)}</td>
+            <td style="width:22%" class="filterable-cell">${escapeHtml(price)}</td>
+            <td style="width:23%" class="filterable-cell">${escapeHtml(inclTax)}</td>
+          </tr>
+        `;
+      }
       return `
         <tr>
           <td style="width:30%" class="filterable-cell">${escapeHtml(qty)}</td>
@@ -172,7 +197,7 @@ function renderContracts(contracts) {
   }
 }
 
-function renderContractsBTC(contracts) {
+function renderContractsBTC(contracts, taxOn) {
   try {
     const tb = document.getElementById('contracts_rows_btc');
     if (!tb) return;
@@ -185,8 +210,19 @@ function renderContractsBTC(contracts) {
 
       const qty   = c.item_quantity ?? '';
       const price = c.price ?? '';
-      const chips = c.value ?? ''; 
+      const chips = c.value ?? '';
+      const inclTax = (c.incl_tax === null || c.incl_tax === undefined) ? '' : c.incl_tax;
 
+      if (taxOn) {
+        return `
+          <tr>
+            <td style="width:25%" class="filterable-cell">${escapeHtml(qty)}</td>
+            <td style="width:30%" class="filterable-cell">${escapeHtml(chips)}</td>
+            <td style="width:22%" class="filterable-cell">${escapeHtml(price)}</td>
+            <td style="width:23%" class="filterable-cell">${escapeHtml(inclTax)}</td>
+          </tr>
+        `;
+      }
       return `
         <tr>
           <td style="width:30%" class="filterable-cell">${escapeHtml(qty)}</td>
@@ -231,8 +267,9 @@ function renderContractsBTC(contracts) {
 
     // Market B (btc)
     if (ob.btc) {
-      if (ob.btc.asks) setTbody('tbody.asks_container_btc', renderOrderRows(ob.btc.asks));
-      if (ob.btc.bids) setTbody('tbody.bids_container_btc', renderOrderRows(ob.btc.bids));
+      const taxOn = !!data.tax_on;  // show the "Incl. tax" column only when taxed
+      if (ob.btc.asks) setTbody('tbody.asks_container_btc', renderOrderRows(ob.btc.asks, taxOn));
+      if (ob.btc.bids) setTbody('tbody.bids_container_btc', renderOrderRows(ob.btc.bids, taxOn));
 	  const bestAsk = (ob.btc.asks && ob.btc.asks.length) ? ob.btc.asks[0] : null;
 	  const bestBid = (ob.btc.bids && ob.btc.bids.length) ? ob.btc.bids[0] : null;
 	  setInnerHtmlById('spread_container_btc', renderSpreadRows(bestAsk, bestBid));
@@ -245,7 +282,7 @@ function renderContractsBTC(contracts) {
 	if ('last_statement' in data) renderLastStatement(data.last_statement, '');
 	if ('last_statement_btc' in data) renderLastStatement(data.last_statement_btc, '_btc');
 	if ('contracts' in data) renderContracts(data.contracts);
-	if ('contracts_btc' in data) renderContractsBTC(data.contracts_btc);
+	if ('contracts_btc' in data) renderContractsBTC(data.contracts_btc, !!data.tax_on);
 
 	// submit the page to advance to the next page in page_sequence
 	if (data.group_presence && data.group_presence.market_over) {

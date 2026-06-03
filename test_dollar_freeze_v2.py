@@ -76,13 +76,19 @@ def run_intro(sid, rnd):
 
 
 def frozen_map_over_rounds(sid, T):
-    """Run IntroWp for rounds 1..T in order; return {(id_in_group, round): frozen}."""
+    """Run IntroWp for rounds 1..T in order.
+
+    Returns {(id_in_group, round): (role_code, frozen, sequence_index)}.
+    The sequence index lets tests distinguish the training sequence (index 0,
+    never frozen) from the paid sequences.
+    """
     out = {}
     for t in range(1, T + 1):
         run_intro(sid, t)
-        _, _, players = round_objs(sid, t)
+        ss, _, players = round_objs(sid, t)
+        seq = M.current_sequence_index_for_round(ss.session, t)
         for idig, p in players.items():
-            out[(idig, t)] = (p.role_code, bool(p.field_maybe_none("dollar_frozen")))
+            out[(idig, t)] = (p.role_code, bool(p.field_maybe_none("dollar_frozen")), seq)
     return out
 
 
@@ -126,7 +132,9 @@ def test_reproducibility_pure_helper():
 #    (different sessions => same schedule for the same buyer positions)
 # ----------------------------------------------------------------------------
 def test_reproducibility_across_sessions():
-    T = 6
+    # Span the training sequence (rounds 1..15, index 0) AND paid sequence 1
+    # (rounds 16+), so the non-trivial-mix assertion exercises real draws.
+    T = 30
     sid1 = new_session(dollar_freeze_enabled=True, freeze_probability=0.5, freeze_seed=42)
     map1 = frozen_map_over_rounds(sid1, T)
     sid2 = new_session(dollar_freeze_enabled=True, freeze_probability=0.5, freeze_seed=42)
@@ -134,10 +142,17 @@ def test_reproducibility_across_sessions():
     check("Reproducibility: two sessions, same seed -> identical frozen map",
           map1 == map2, f"keys={len(map1)}")
 
-    # sanity: with prob 0.5 over 6 rounds the schedule isn't all-False/all-True
-    frozen_vals = [fr for (_role, fr) in map1.values()]
-    check("Reproducibility: schedule is non-trivial (mix of frozen/unfrozen)",
-          any(frozen_vals) and not all(frozen_vals))
+    # training sequence (index 0) is always unfrozen regardless of the draw
+    training_frozen = [fr for (_role, fr, seq) in map1.values()
+                       if seq == M.TRAINING_SEQUENCE_INDEX and fr]
+    check("Reproducibility: training sequence never frozen",
+          len(training_frozen) == 0, f"training-frozen count={len(training_frozen)}")
+
+    # sanity: in the paid sequence, with prob 0.5 the schedule is non-trivial
+    paid_buyer_frozen = [fr for (role, fr, seq) in map1.values()
+                         if role == "buyer" and seq != M.TRAINING_SEQUENCE_INDEX]
+    check("Reproducibility: paid-sequence schedule is non-trivial (mix of frozen/unfrozen)",
+          any(paid_buyer_frozen) and not all(paid_buyer_frozen))
 
     # a different seed should give a different map (very likely)
     sid3 = new_session(dollar_freeze_enabled=True, freeze_probability=0.5, freeze_seed=7)
@@ -149,13 +164,41 @@ def test_reproducibility_across_sessions():
 # 3. Sellers are never frozen, even with probability = 1
 # ----------------------------------------------------------------------------
 def test_sellers_never_frozen():
+    # Cover training (1..15) and paid sequence 1 (16..18) so the probability=1
+    # claim is checked only where the freeze applies.
     sid = new_session(dollar_freeze_enabled=True, freeze_probability=1.0, freeze_seed=5)
-    fm = frozen_map_over_rounds(sid, 6)
-    seller_frozen = [fr for (_idig, _t), (role, fr) in fm.items() if role == "seller" and fr]
-    buyer_frozen_all = all(fr for (_k), (role, fr) in fm.items() if role == "buyer")
+    fm = frozen_map_over_rounds(sid, 18)
+    seller_frozen = [fr for (role, fr, _seq) in fm.values() if role == "seller" and fr]
+    paid_buyer_all_frozen = all(
+        fr for (role, fr, seq) in fm.values()
+        if role == "buyer" and seq != M.TRAINING_SEQUENCE_INDEX
+    )
     check("Sellers never frozen (even with probability=1)", len(seller_frozen) == 0,
           f"seller-frozen count={len(seller_frozen)}")
-    check("probability=1 => every buyer frozen every period", buyer_frozen_all)
+    check("probability=1 => every PAID-sequence buyer frozen every period",
+          paid_buyer_all_frozen)
+
+
+# ----------------------------------------------------------------------------
+# 3b. Training sequence (index 0) is gated out: never frozen, even at prob=1,
+#     while the first paid sequence IS frozen at prob=1.
+# ----------------------------------------------------------------------------
+def test_training_sequence_gate():
+    sid = new_session(dollar_freeze_enabled=True, freeze_probability=1.0, freeze_seed=5)
+    fm = frozen_map_over_rounds(sid, 18)  # rounds 1..15 training, 16..18 paid seq 1
+
+    training_buyer = [fr for (role, fr, seq) in fm.values()
+                      if role == "buyer" and seq == M.TRAINING_SEQUENCE_INDEX]
+    paid_buyer = [fr for (role, fr, seq) in fm.values()
+                  if role == "buyer" and seq != M.TRAINING_SEQUENCE_INDEX]
+
+    check("Training gate: buyer-rounds exist in both training and paid sequences",
+          len(training_buyer) > 0 and len(paid_buyer) > 0,
+          f"training={len(training_buyer)}, paid={len(paid_buyer)}")
+    check("Training gate: no training-sequence buyer frozen (even at prob=1)",
+          not any(training_buyer))
+    check("Training gate: all paid-sequence buyers frozen (prob=1)",
+          all(paid_buyer))
 
 
 # ----------------------------------------------------------------------------
@@ -318,6 +361,7 @@ def main():
         test_reproducibility_pure_helper,
         test_reproducibility_across_sessions,
         test_sellers_never_frozen,
+        test_training_sequence_gate,
         test_probability_bounds,
         test_disabled_no_freeze,
         test_frozen_cannot_post_dollar_bid,
